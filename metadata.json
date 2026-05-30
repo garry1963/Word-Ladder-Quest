@@ -1,0 +1,6 @@
+{
+  "name": "Word Ladder Quest",
+  "description": "A modern, high-polished mobile and tablet word puzzle game with offline-ready BFS solvers, smart hint guides, and exciting speedrun time attacks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
