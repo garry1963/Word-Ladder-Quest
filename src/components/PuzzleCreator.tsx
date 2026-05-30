@@ -138,14 +138,14 @@ export default function PuzzleCreator({
     <div className="w-full py-6 px-4 max-w-7xl mx-auto space-y-8 animate-fade-in" id="puzzle-creator-view">
       
       {/* Overview Banner */}
-      <div className="bg-gradient-to-tr from-purple-500/20 via-indigo-500/10 to-transparent border border-purple-500/20 backdrop-blur-md rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-purple-500/15 rounded-full blur-3xl animate-bounce" />
+      <div className="bg-white border border-slate-205 rounded-3xl p-6 sm:p-8 text-slate-800 shadow-md relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl animate-bounce" />
         <div className="relative z-10 space-y-2">
-          <span className="bg-purple-500/20 text-purple-300 font-mono text-[10px] tracking-widest uppercase px-3 py-1 rounded-full border border-purple-500/35 animate-pulse">
+          <span className="bg-purple-500/10 text-purple-700 font-semibold font-mono text-[10px] tracking-widest uppercase px-3 py-1 rounded-full border border-purple-200 animate-pulse">
             Sandbox Workshop
           </span>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase">Linguistic Sandbox Creator</h2>
-          <p className="text-slate-300 text-sm max-w-2xl leading-relaxed font-medium">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-850 uppercase">Linguistic Sandbox Creator</h2>
+          <p className="text-slate-600 text-sm max-w-2xl leading-relaxed font-semibold">
             Unleash your inner puzzle smith! Craft custom start-to-end words. The local alchemist solver checks immediately if a valid corridor exists, scores the Par rating, and compiles it as a playable stage!
           </p>
         </div>
@@ -154,9 +154,9 @@ export default function PuzzleCreator({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Creator Panel */}
-        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-xl space-y-6">
-          <h3 className="font-extrabold text-white text-lg flex items-center space-x-2 border-b border-white/5 pb-3">
-            <PlusCircle className="w-5 h-5 text-purple-400" />
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-md space-y-6">
+          <h3 className="font-extrabold text-slate-805 text-lg flex items-center space-x-2 border-b border-slate-100 pb-3">
+            <PlusCircle className="w-5 h-5 text-purple-500" />
             <span>Engrave New Ladder</span>
           </h3>
 
@@ -165,7 +165,7 @@ export default function PuzzleCreator({
             {/* Word inputs */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-1.5 font-mono">
+                <label className="block text-xs font-bold text-indigo-650 uppercase tracking-wider mb-1.5 font-mono">
                   Start Word
                 </label>
                 <input
@@ -174,13 +174,13 @@ export default function PuzzleCreator({
                   value={startInput}
                   onChange={(e) => setStartInput(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
                   placeholder="e.g. COLD"
-                  className="w-full bg-slate-950/60 border border-white/10 text-white rounded-xl px-4 py-3 text-sm font-mono font-bold tracking-widest focus:outline-none focus:border-purple-400 transition"
+                  className="w-full bg-slate-50 border border-slate-205 text-slate-805 rounded-xl px-4 py-3 text-sm font-mono font-bold tracking-widest focus:outline-none focus:border-purple-400 transition shadow-inner"
                   id="custom-start-word-input"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-1.5 font-mono">
+                <label className="block text-xs font-bold text-indigo-650 uppercase tracking-wider mb-1.5 font-mono">
                   Target Word
                 </label>
                 <input
@@ -189,7 +189,7 @@ export default function PuzzleCreator({
                   value={targetInput}
                   onChange={(e) => setTargetInput(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
                   placeholder="e.g. WARM"
-                  className="w-full bg-slate-950/60 border border-white/10 text-white rounded-xl px-4 py-3 text-sm font-mono font-bold tracking-widest focus:outline-none focus:border-purple-400 transition"
+                  className="w-full bg-slate-50 border border-slate-205 text-slate-805 rounded-xl px-4 py-3 text-sm font-mono font-bold tracking-widest focus:outline-none focus:border-purple-400 transition shadow-inner"
                   id="custom-target-word-input"
                 />
               </div>
@@ -197,15 +197,15 @@ export default function PuzzleCreator({
 
             {/* Optional Title input */}
             <div>
-              <label className="block text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-1.5 font-mono">
-                Custom Stage Title <span className="text-slate-500 font-sans italic lowercase">(optional)</span>
+              <label className="block text-xs font-bold text-indigo-650 uppercase tracking-wider mb-1.5 font-mono">
+                Custom Stage Title <span className="text-slate-400 font-sans italic lowercase">(optional)</span>
               </label>
               <input
                 type="text"
                 placeholder="e.g. Thermal Expansion"
                 value={puzzleTitle}
                 onChange={(e) => setPuzzleTitle(e.target.value)}
-                className="w-full bg-slate-950/60 border border-white/10 text-white rounded-xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-purple-400 transition"
+                className="w-full bg-slate-50 border border-slate-205 text-slate-805 rounded-xl px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-purple-400 transition shadow-inner font-semibold"
                 id="custom-puzzle-title-input"
               />
             </div>
@@ -215,7 +215,7 @@ export default function PuzzleCreator({
               <button
                 type="button"
                 onClick={handleVerify}
-                className="w-full bg-indigo-600 hover:bg-indigo-550 border border-indigo-400/25 transition-all text-white font-bold py-3.5 rounded-xl text-xs sm:text-sm shadow-md cursor-pointer"
+                className="w-full bg-indigo-600 hover:bg-indigo-550 border border-indigo-500/20 transition-all text-white font-bold py-3.5 rounded-xl text-xs sm:text-sm shadow-md cursor-pointer"
                 id="validate-pair-btn"
               >
                 Assemble & Verify Corridor
@@ -226,13 +226,13 @@ export default function PuzzleCreator({
             {feedback.status !== 'idle' && (
               <div className={`p-4 rounded-2xl border flex flex-col space-y-3 ${
                 feedback.status === 'success' 
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" 
-                  : "bg-rose-500/10 border-rose-500/20 text-rose-300"
+                  ? "bg-emerald-50 border-emerald-250 text-emerald-805 font-medium" 
+                  : "bg-rose-50 border-rose-250 text-rose-805 font-medium"
               }`}>
                 <div className="flex items-start space-x-2.5">
                   {feedback.status === 'success' 
-                    ? <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" /> 
-                    : <AlertCircle className="w-5 h-5 text-rose-450 shrink-0 mt-0.5" />
+                    ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" /> 
+                    : <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
                   }
                   <p className="text-xs sm:text-sm font-semibold leading-relaxed">
                     {feedback.message}
@@ -240,15 +240,15 @@ export default function PuzzleCreator({
                 </div>
 
                 {feedback.status === 'success' && feedback.optimalPath && (
-                  <div className="pt-3.5 border-t border-white/5 space-y-2">
+                  <div className="pt-3.5 border-t border-slate-100 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-emerald-400">
+                      <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-emerald-600">
                         Solution Par: {feedback.optimalPath.length - 1} steps
                       </span>
                       <button
                         type="button"
                         onClick={() => setShowSolution(!showSolution)}
-                        className="flex items-center space-x-1.5 text-[11px] font-semibold hover:underline text-indigo-300 cursor-pointer"
+                        className="flex items-center space-x-1.5 text-[11px] font-bold hover:underline text-indigo-650 cursor-pointer"
                         id="toggle-solution-btn"
                       >
                         {showSolution ? <EyeOff className="w-3.5 h-3.5 animate-pulse" /> : <Eye className="w-3.5 h-3.5" />}
@@ -257,14 +257,14 @@ export default function PuzzleCreator({
                     </div>
 
                     {showSolution && (
-                      <div className="flex flex-wrap items-center bg-slate-950/45 rounded-xl p-3 border border-white/5 gap-2 font-mono text-xs font-bold text-white animate-slide-in">
+                      <div className="flex flex-wrap items-center bg-slate-50 rounded-xl p-3 border border-slate-205 gap-2 font-mono text-xs font-bold text-slate-805 animate-slide-in">
                         {feedback.optimalPath.map((word, idx) => (
                           <React.Fragment key={idx}>
-                            <span className="px-2.5 py-1 bg-slate-950/60 border border-white/10 rounded shadow-sm text-slate-200">
+                            <span className="px-2.5 py-1 bg-white border border-slate-200 rounded shadow-sm text-slate-800">
                               {word}
                             </span>
                             {idx < feedback.optimalPath!.length - 1 && (
-                              <ArrowRight className="w-3 h-3 text-slate-500" />
+                              <ArrowRight className="w-3 h-3 text-slate-400" />
                             )}
                           </React.Fragment>
                         ))}
@@ -274,7 +274,7 @@ export default function PuzzleCreator({
                     <form onSubmit={handleSave} className="pt-2">
                       <button
                         type="submit"
-                        className="w-full bg-purple-600 hover:bg-purple-550 border border-purple-400/20 text-white font-bold py-3 rounded-xl text-xs sm:text-sm shadow-lg cursor-pointer"
+                        className="w-full bg-purple-600 hover:bg-purple-555 border border-purple-400/20 text-white font-bold py-3 rounded-xl text-xs sm:text-sm shadow-md cursor-pointer"
                         id="save-puzzle-btn"
                       >
                         Engrave as Playable Stage
@@ -289,18 +289,18 @@ export default function PuzzleCreator({
         </div>
 
         {/* Playable Stage Shelf */}
-        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-xl space-y-6 flex flex-col justify-between">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-md space-y-6 flex flex-col justify-between">
           <div className="space-y-4">
-            <h3 className="font-extrabold text-white text-lg flex items-center space-x-2 border-b border-white/5 pb-3">
-              <Dna className="w-5 h-5 text-indigo-400" />
+            <h3 className="font-extrabold text-slate-805 text-lg flex items-center space-x-2 border-b border-slate-100 pb-3">
+              <Dna className="w-5 h-5 text-indigo-500 animate-pulse" />
               <span>Engraved Stage Shelf</span>
             </h3>
 
             {customPuzzles.length === 0 ? (
-              <div className="text-center py-12 px-4 space-y-3.5 border border-dashed border-white/10 bg-slate-950/40 rounded-2xl">
-                <HelpCircle className="w-8 h-8 text-slate-500 mx-auto animate-bounce" />
-                <h4 className="font-bold text-slate-400 text-sm">Shelf is currently empty</h4>
-                <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+              <div className="text-center py-12 px-4 space-y-3.5 border border-dashed border-slate-200 bg-slate-50 rounded-2xl">
+                <HelpCircle className="w-8 h-8 text-slate-400 mx-auto animate-bounce" />
+                <h4 className="font-bold text-slate-500 text-sm">Shelf is currently empty</h4>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed font-semibold">
                   Engrave starting and ending keywords on the left. Once confirmed solvable, save them here to challenge your friends!
                 </p>
               </div>
@@ -309,15 +309,15 @@ export default function PuzzleCreator({
                 {customPuzzles.map((puz) => (
                   <div
                     key={puz.id}
-                    className="flex justify-between items-center bg-slate-955/40 border border-white/5 hover:border-white/10 rounded-2xl p-4 transition-all group"
+                    className="flex justify-between items-center bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-2xl p-4 transition-all group"
                     id={`custom-level-${puz.id}`}
                   >
                     <div>
-                      <h4 className="font-bold text-white text-sm">{puz.title}</h4>
-                      <div className="flex items-center space-x-2 text-[10px] font-mono text-slate-405 mt-1">
-                        <span className="text-purple-400 font-bold">{puz.startWord}</span>
+                      <h4 className="font-bold text-slate-800 text-sm">{puz.title}</h4>
+                      <div className="flex items-center space-x-2 text-[10px] font-mono text-slate-500 mt-1 font-semibold">
+                        <span className="text-purple-600 font-bold font-mono">{puz.startWord}</span>
                         <span>→</span>
-                        <span className="text-amber-400 font-bold">{puz.targetWord}</span>
+                        <span className="text-amber-600 font-bold font-mono">{puz.targetWord}</span>
                         <span>•</span>
                         <span>Par: {puz.par}</span>
                       </div>
@@ -326,7 +326,7 @@ export default function PuzzleCreator({
                     <div className="flex items-center space-x-2.5">
                       <button
                         onClick={() => onDeletePuzzle(puz.id)}
-                        className="p-1 px-1.5 hover:bg-rose-500/10 text-rose-400 hover:text-rose-500 rounded-md transition outline-none cursor-pointer"
+                        className="p-1 px-1.5 hover:bg-rose-50 text-rose-500 hover:text-rose-600 rounded-md transition outline-none cursor-pointer border border-transparent hover:border-rose-100"
                         title="Delete custom level"
                         id={`delete-custom-level-${puz.id}`}
                       >
@@ -346,7 +346,7 @@ export default function PuzzleCreator({
                           };
                           onPlayCustom(customLvl);
                         }}
-                        className="bg-indigo-600 hover:bg-indigo-550 border border-indigo-400/20 text-white p-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all cursor-pointer"
+                        className="bg-indigo-600 hover:bg-indigo-550 border border-indigo-500/20 text-white p-2 px-3 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer"
                         id={`play-custom-level-${puz.id}`}
                       >
                         <Play className="w-3 h-3 fill-white" />
@@ -359,7 +359,7 @@ export default function PuzzleCreator({
             )}
           </div>
 
-          <div className="pt-4 border-t border-white/5 text-[11px] font-mono text-slate-500 italic">
+          <div className="pt-4 border-t border-slate-100 text-[11px] font-mono text-slate-450 italic font-semibold">
             * Custom stages are saved locally on your cache for offline replayability!
           </div>
 

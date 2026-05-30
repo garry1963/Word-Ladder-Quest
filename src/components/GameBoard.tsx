@@ -61,7 +61,8 @@ export default function GameBoard({
 
   // Error state for validation buzzers
   const [errorFlash, setErrorFlash] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string>( "");
+  const [isValidatingWord, setIsValidatingWord] = useState<boolean>(false);
 
   // Hint tracker state
   const [activeHint, setActiveHint] = useState<{
@@ -78,6 +79,136 @@ export default function GameBoard({
 
   // Dictionary active details lookups
   const [activeDefinitionWord, setActiveDefinitionWord] = useState<string | null>(null);
+  const [isFetchingDefinition, setIsFetchingDefinition] = useState<boolean>(false);
+  const [fetchedDefinition, setFetchedDefinition] = useState<{
+    definition: string;
+    phonetic?: string;
+    partOfSpeech?: string;
+  } | null>(null);
+
+  const [dictionarySearchQuery, setDictionarySearchQuery] = useState<string>("");
+
+  const [isFetchingHintDefinition, setIsFetchingHintDefinition] = useState<boolean>(false);
+  const [hintDefinition, setHintDefinition] = useState<{
+    definition: string;
+    phonetic?: string;
+    partOfSpeech?: string;
+  } | null>(null);
+
+  // Auto-fetch definition from English Dictionary API whenever user clicks a word to inspect
+  useEffect(() => {
+    if (!activeDefinitionWord) {
+      setFetchedDefinition(null);
+      return;
+    }
+
+    const fetchDefinition = async () => {
+      setIsFetchingDefinition(true);
+      try {
+        const wordClean = activeDefinitionWord.toLowerCase().trim();
+        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(wordClean)}`);
+        if (!res.ok) {
+          throw new Error("Definition not found");
+        }
+        const data = await res.json();
+        if (data && data[0]) {
+          const entry = data[0];
+          const phonetic = entry.phonetic || (entry.phonetics && entry.phonetics.find((p: any) => p.text)?.text);
+          let definition = "No definition found.";
+          let partOfSpeech = undefined;
+          if (entry.meanings && entry.meanings[0]) {
+            partOfSpeech = entry.meanings[0].partOfSpeech;
+            if (entry.meanings[0].definitions && entry.meanings[0].definitions[0]) {
+              definition = entry.meanings[0].definitions[0].definition;
+            }
+          }
+          setFetchedDefinition({
+            definition,
+            phonetic,
+            partOfSpeech,
+          });
+        } else {
+          setFetchedDefinition(null);
+        }
+      } catch (err) {
+        // Fallback to offline dictionary
+        const wordClean = activeDefinitionWord.toLowerCase().trim();
+        const offlineDef = OFFLINE_DICTIONARY[wordClean];
+        if (offlineDef) {
+          setFetchedDefinition({
+            definition: offlineDef,
+            partOfSpeech: "common",
+          });
+        } else {
+          setFetchedDefinition({
+            definition: "A valid English Scrabble word with no offline definition available.",
+            partOfSpeech: "Scrabble Word",
+          });
+        }
+      } finally {
+        setIsFetchingDefinition(false);
+      }
+    };
+
+    fetchDefinition();
+  }, [activeDefinitionWord]);
+
+  // Auto-fetch definition of hint word so the user gets an rich context-aware dictionary clue
+  useEffect(() => {
+    if (!activeHint) {
+      setHintDefinition(null);
+      return;
+    }
+
+    const fetchHintDef = async () => {
+      setIsFetchingHintDefinition(true);
+      try {
+        const wordClean = activeHint.nextWord.toLowerCase().trim();
+        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(wordClean)}`);
+        if (!res.ok) {
+          throw new Error("Hint definition not found");
+        }
+        const data = await res.json();
+        if (data && data[0]) {
+          const entry = data[0];
+          const phonetic = entry.phonetic || (entry.phonetics && entry.phonetics.find((p: any) => p.text)?.text);
+          let definition = "No definition definition found.";
+          let partOfSpeech = undefined;
+          if (entry.meanings && entry.meanings[0]) {
+            partOfSpeech = entry.meanings[0].partOfSpeech;
+            if (entry.meanings[0].definitions && entry.meanings[0].definitions[0]) {
+              definition = entry.meanings[0].definitions[0].definition;
+            }
+          }
+          setHintDefinition({
+            definition,
+            phonetic,
+            partOfSpeech,
+          });
+        } else {
+          setHintDefinition(null);
+        }
+      } catch (err) {
+        const wordClean = activeHint.nextWord.toLowerCase().trim();
+        const offlineDef = OFFLINE_DICTIONARY[wordClean];
+        if (offlineDef) {
+          setHintDefinition({
+            definition: offlineDef,
+            partOfSpeech: "common",
+          });
+        } else {
+          setHintDefinition({
+            definition: "A valid English word.",
+            partOfSpeech: "Scrabble Word",
+          });
+        }
+      } finally {
+        setIsFetchingHintDefinition(false);
+      }
+    };
+
+    fetchHintDef();
+  }, [activeHint]);
 
   // Restart level
   const handleResetLevel = () => {
@@ -114,14 +245,14 @@ export default function GameBoard({
   };
 
   // Intermediate step validation
-  const handleValidateStep = () => {
-    if (isVictor) return;
+  const handleValidateStep = async () => {
+    if (isVictor || isValidatingWord) return;
 
     const candidate = currentInput.trim().toUpperCase();
     const currentAnchor = ladder[ladder.length - 1];
 
     if (candidate.length !== wordLength) {
-      triggerError("Word is incomple.");
+      triggerError("Word is incomplete.");
       return;
     }
 
@@ -138,7 +269,25 @@ export default function GameBoard({
     }
 
     // Check if legitimate word
-    const inDict = ALL_WORDS_SET.has(candidate.toLowerCase());
+    const lowercaseCandidate = candidate.toLowerCase();
+    let inDict = ALL_WORDS_SET.has(lowercaseCandidate);
+
+    if (!inDict) {
+      setIsValidatingWord(true);
+      try {
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${lowercaseCandidate}`);
+        if (response.status === 200) {
+          // Dynamically record to Set directory so the dictionary accepts it in active memory paths too
+          ALL_WORDS_SET.add(lowercaseCandidate);
+          inDict = true;
+        }
+      } catch (err) {
+        console.warn("Unable to contact validation API, default to strict offline check", err);
+      } finally {
+        setIsValidatingWord(false);
+      }
+    }
+
     if (!inDict) {
       triggerError(`"${candidate}" is not present in our level vocabulary directory.`);
       return;
@@ -224,9 +373,8 @@ export default function GameBoard({
 
   // Click on active word to see glossary definition
   const handleShowWordDefinition = (word: string) => {
-    const definition = OFFLINE_DICTIONARY[word.toLowerCase().trim()];
-    if (definition) {
-      setActiveDefinitionWord(word);
+    if (word && word.trim() !== "") {
+      setActiveDefinitionWord(word.trim().toUpperCase());
     } else {
       setActiveDefinitionWord(null);
     }
@@ -243,21 +391,21 @@ export default function GameBoard({
       <div className="w-full max-w-4xl flex justify-between items-center mb-6">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3.5 py-2 rounded-xl hover:bg-white/10 transition font-bold text-xs sm:text-sm text-slate-300 shadow-sm cursor-pointer"
+          className="flex items-center gap-1.5 bg-white border border-slate-200 px-3.5 py-2 rounded-xl hover:bg-slate-50 transition font-bold text-xs sm:text-sm text-slate-600 shadow-sm cursor-pointer"
           id="back-btn"
         >
-          <ArrowLeft className="w-4 h-4 text-rose-400" />
+          <ArrowLeft className="w-4 h-4 text-rose-500" />
           <span>Exit Maps</span>
         </button>
 
         <div className="text-center">
-          <h3 className="font-extrabold text-white text-sm sm:text-base uppercase tracking-wider">{level.title}</h3>
-          <p className="text-[10px] font-mono text-indigo-300 font-bold uppercase">Stage ID: {level.id}</p>
+          <h3 className="font-extrabold text-slate-800 text-sm sm:text-base uppercase tracking-wider">{level.title}</h3>
+          <p className="text-[10px] font-mono text-indigo-650 font-bold uppercase">Stage ID: {level.id}</p>
         </div>
 
         <button
           onClick={handleResetLevel}
-          className="flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 px-3.5 py-2 rounded-xl transition font-bold text-xs sm:text-sm shadow-xs cursor-pointer"
+          className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 px-3.5 py-2 rounded-xl transition font-bold text-xs sm:text-sm shadow-xs cursor-pointer"
           id="level-reset-btn"
         >
           <RotateCcw className="w-3.5 h-3.5" />
@@ -269,15 +417,15 @@ export default function GameBoard({
       <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         
         {/* LEFT COLUMN: The Interactive Word Ladder representation */}
-        <div className="md:col-span-6 bg-white/5 backdrop-blur-md border border-white/10 rounded-[2rem] p-6 shadow-xl flex flex-col items-center space-y-5">
+        <div className="md:col-span-6 bg-white border border-slate-220 rounded-[2rem] p-6 shadow-sm flex flex-col items-center space-y-5">
           
           {/* Par and Target specs inside custom pill */}
-          <div className="flex justify-between items-center w-full bg-slate-950/40 border border-white/5 px-4 py-3 rounded-2xl text-xs backdrop-blur-sm text-slate-300">
-            <span className="font-mono text-slate-400 font-bold">PAR: <strong className="text-white font-black">{level.par} steps</strong></span>
-            <span className="text-slate-600 font-black">•</span>
-            <span className="font-mono text-slate-400 font-bold">MOVES: <strong className="text-sky-400 font-black">{currentMoves}</strong></span>
-            <span className="text-slate-600 font-black">•</span>
-            <div className="flex items-center gap-1 font-bold text-amber-400 font-mono">
+          <div className="flex justify-between items-center w-full bg-slate-50 border border-slate-150 px-4 py-3 rounded-2xl text-xs text-slate-700 shadow-inner">
+            <span className="font-mono text-slate-550 font-bold">PAR: <strong className="text-slate-805 font-black">{level.par} steps</strong></span>
+            <span className="text-slate-300 font-black">•</span>
+            <span className="font-mono text-slate-550 font-bold">MOVES: <strong className="text-indigo-600 font-black">{currentMoves}</strong></span>
+            <span className="text-slate-300 font-black">•</span>
+            <div className="flex items-center gap-1 font-extrabold text-amber-600 font-mono">
               ★ {starsExpectancy} STAR{starsExpectancy > 1 ? "S" : ""}
             </div>
           </div>
@@ -286,17 +434,17 @@ export default function GameBoard({
             
             {/* 1. START WORD (Locked individual character tiles) */}
             <div className="flex flex-col items-center w-full">
-              <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-indigo-300 mb-1.5 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> START WORD
+              <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-150 mb-1.5 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> START WORD
               </span>
               <div 
                 onClick={() => handleShowWordDefinition(level.startWord)}
-                className="flex gap-2 cursor-help select-none bg-slate-900/60 hover:bg-slate-900/80 p-2.5 rounded-2xl border border-white/10 transition"
+                className="flex gap-2 cursor-help select-none bg-slate-50 hover:bg-slate-100 p-2.5 rounded-2xl border border-slate-200 transition"
                 id="start-word-box"
                 title="Tap for glossary definition"
               >
                 {level.startWord.toUpperCase().split("").map((letter, idx) => (
-                  <div key={idx} className="w-11 h-14 sm:w-12 sm:h-15 bg-slate-950/80 rounded-xl flex items-center justify-center text-white text-xl sm:text-2xl font-black border border-white/10 shadow-lg shadow-black/45">
+                  <div key={idx} className="w-11 h-14 sm:w-12 sm:h-15 bg-white rounded-xl flex items-center justify-center text-slate-800 text-xl sm:text-2xl font-black border border-slate-220 shadow-sm">
                     {letter}
                   </div>
                 ))}
@@ -304,7 +452,7 @@ export default function GameBoard({
             </div>
 
             {/* Path lines connection connector */}
-            <div className="w-[2px] h-6 bg-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.5)] rounded-full my-1" />
+            <div className="w-[2px] h-6 bg-indigo-200 rounded-full my-1" />
 
             {/* 2. SUBMITTED WORD STEPS IN LADDER */}
             {ladder.slice(1).map((step, idx) => {
@@ -314,7 +462,7 @@ export default function GameBoard({
                   <div className="flex items-center justify-center w-full relative">
                     <div 
                       onClick={() => handleShowWordDefinition(step)}
-                      className="flex gap-2 cursor-help select-none bg-slate-900/40 hover:bg-slate-900/60 p-2.5 rounded-2xl border border-white/5 transition"
+                      className="flex gap-2 cursor-help select-none bg-slate-50/50 hover:bg-slate-100 p-2.5 rounded-2xl border border-slate-150 transition"
                       id={`ladder-step-${idx}`}
                       title="Tap for glossary definition"
                     >
@@ -327,8 +475,8 @@ export default function GameBoard({
                             key={letterIdx} 
                             className={`w-11 h-14 sm:w-12 sm:h-15 rounded-xl flex items-center justify-center text-xl sm:text-2xl font-black border transition ${
                               isMutated 
-                                ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40 shadow-[0_0_12px_rgba(99,102,241,0.4)]" 
-                                : "bg-white/10 text-white border-white/10 shadow-sm"
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-xs font-black" 
+                                : "bg-white text-slate-700 border-slate-200 shadow-xs font-extrabold"
                             }`}
                           >
                             {letter}
@@ -341,7 +489,7 @@ export default function GameBoard({
                     {isLatestSubmittedStep && !isVictor && (
                       <button
                         onClick={handleUndoStep}
-                        className="absolute -right-4 translate-x-full p-2.5 bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 border border-rose-500/25 rounded-xl transition cursor-pointer font-black text-xs shadow-md"
+                        className="absolute -right-4 translate-x-full p-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-xl transition cursor-pointer font-black text-xs shadow-sm"
                         title="Delete latest step"
                         id="undo-step-btn"
                       >
@@ -358,13 +506,19 @@ export default function GameBoard({
             {/* 3. ACTIVE LETTER INPUT SLOT */}
             {!isVictor && (
               <div className="flex flex-col items-center w-full">
-                <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 mb-1.5 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span> ACTIVE STEP
-                </span>
+                {isValidatingWord ? (
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#4F46E5] bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 mb-1.5 flex items-center gap-1 animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> VERIFYING WORDS...
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-250 mb-1.5 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> ACTIVE STEP
+                  </span>
+                )}
                 
                 <div 
-                  className={`flex gap-2 p-2.5 bg-[#0c1223]/80 rounded-2xl border border-indigo-500/20 transition ${
-                    errorFlash ? "animate-shake border-rose-500/50 bg-rose-950/20" : ""
+                  className={`flex gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl transition ${
+                    errorFlash ? "animate-shake border-rose-500 bg-rose-50" : ""
                   }`}
                   id="active-input-slot"
                 >
@@ -376,10 +530,10 @@ export default function GameBoard({
                         key={charIdx} 
                         className={`w-11 h-14 sm:w-12 sm:h-15 rounded-xl flex items-center justify-center text-xl sm:text-2xl font-black border transition ${
                           isActiveCursor 
-                            ? "bg-violet-600/15 border-violet-400 text-violet-300 shadow-[0_0_15px_rgba(139,92,246,0.5)] animate-pulse" 
+                            ? "bg-indigo-50 border-indigo-400 text-indigo-700 animate-pulse" 
                             : char 
-                            ? "bg-indigo-500/10 text-white border-indigo-500/30 shadow-[0_0_10px_rgba(99,102,241,0.2)]" 
-                            : "bg-white/5 border-dashed border-white/10 text-slate-500"
+                            ? "bg-white text-slate-800 border-slate-300 shadow-sm" 
+                            : "bg-white border-dashed border-slate-200 text-slate-400"
                         }`}
                       >
                         {char || "?"}
@@ -387,23 +541,23 @@ export default function GameBoard({
                     );
                   })}
                 </div>
-                <div className="w-[2px] h-6 bg-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.5)] rounded-full my-1" />
+                <div className="w-[2px] h-6 bg-indigo-200 rounded-full my-1" />
               </div>
             )}
 
             {/* 4. TARGET WORD (Locked at bottom) */}
             <div className="flex flex-col items-center w-full">
-              <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#FF6B6B] bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20 mb-1.5 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span> TARGET WORD
+              <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 mb-1.5 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> TARGET WORD
               </span>
               <div 
                 onClick={() => handleShowWordDefinition(level.targetWord)}
-                className="flex gap-2 cursor-help select-none bg-rose-950/15 hover:bg-rose-950/25 p-2.5 rounded-2xl border border-rose-500/20 transition"
+                className="flex gap-2 cursor-help select-none bg-rose-50/50 hover:bg-rose-100 p-2.5 rounded-2xl border border-rose-200 transition"
                 id="target-word-box"
                 title="Tap for glossary definition"
               >
                 {level.targetWord.toUpperCase().split("").map((letter, idx) => (
-                  <div key={idx} className="w-11 h-14 sm:w-12 sm:h-15 bg-gradient-to-tr from-rose-500 to-[#FF6B6B] rounded-xl flex items-center justify-center text-white text-xl sm:text-2xl font-black border border-rose-400/30 shadow-[0_0_15px_rgba(239,68,68,0.25)]">
+                  <div key={idx} className="w-11 h-14 sm:w-12 sm:h-15 bg-gradient-to-tr from-rose-600 to-rose-400 rounded-xl flex items-center justify-center text-white text-xl sm:text-2xl font-black border border-rose-400 shadow-xs">
                     {letter}
                   </div>
                 ))}
@@ -419,22 +573,21 @@ export default function GameBoard({
 
         {/* RIGHT COLUMN: Touch Pad Keyboard and Smart Hint Box */}
         <div className="md:col-span-6 space-y-6">
-          
-          {/* Victory Overlay if Solved! */}
+               {/* Victory Overlay if Solved! */}
           {isVictor ? (
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="bg-slate-900/60 backdrop-blur-xl border border-emerald-500/30 p-6 rounded-[2rem] text-center space-y-5 shadow-2xl shadow-emerald-500/5 text-slate-100"
+              className="bg-white border border-emerald-200 p-6 rounded-[2rem] text-center space-y-5 shadow-xs text-slate-850"
               id="victory-congratulations"
             >
-              <div className="w-16 h-16 bg-amber-500/10 text-amber-300 border border-amber-500/25 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-amber-500/5">
-                <Star className="w-8 h-8 fill-amber-400/20 text-amber-400" />
+              <div className="w-16 h-16 bg-amber-50 text-amber-500 border border-amber-200 rounded-full flex items-center justify-center mx-auto shadow-xs">
+                <Star className="w-8 h-8 fill-amber-400/25 text-amber-500" />
               </div>
 
               <div className="space-y-1">
-                <h3 className="text-2xl font-black tracking-tight bg-gradient-to-r from-amber-400 to-emerald-300 bg-clip-text text-transparent uppercase">Tome Engraved!</h3>
-                <p className="text-slate-400 text-xs font-semibold">Mutations completed with absolute precision.</p>
+                <h3 className="text-2xl font-black tracking-tight text-amber-500 uppercase">Tome Engraved!</h3>
+                <p className="text-slate-500 text-xs font-semibold">Mutations completed with absolute precision.</p>
               </div>
 
               {/* Star display rating */}
@@ -443,27 +596,27 @@ export default function GameBoard({
                   <Star 
                     key={s} 
                     className={`w-9 h-9 ${
-                      s <= finalStarsCount ? "fill-amber-400 text-amber-500" : "text-slate-700"
+                      s <= finalStarsCount ? "fill-amber-400 text-amber-500" : "text-slate-200"
                     }`}
                   />
                 ))}
               </div>
 
-              <div className="py-3 px-4 bg-slate-950/50 border border-white/5 rounded-2xl max-w-sm mx-auto font-mono text-xs">
-                <div className="flex justify-between items-center text-slate-400 font-bold">
+              <div className="py-3 px-4 bg-slate-50 border border-slate-200 rounded-2xl max-w-sm mx-auto font-mono text-xs">
+                <div className="flex justify-between items-center text-slate-500 font-bold">
                   <span>Completed Count:</span>
-                  <span className="text-white font-black">{ladder.length - 1} transitions</span>
+                  <span className="text-slate-800 font-black">{ladder.length - 1} transitions</span>
                 </div>
-                <div className="flex justify-between items-center text-slate-400 mt-1.5 font-bold">
+                <div className="flex justify-between items-center text-slate-550 mt-1.5 font-bold">
                   <span>Objective Par Limit:</span>
-                  <span className="text-white font-black">{level.par} steps</span>
+                  <span className="text-slate-800 font-black">{level.par} steps</span>
                 </div>
               </div>
 
               {/* Path sequence review */}
-              <div className="space-y-1.5 text-left border-t border-white/5 pt-4 px-1">
-                <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-bold">Chronological Corridor:</p>
-                <p className="text-sm font-mono text-sky-400 font-black leading-relaxed">
+              <div className="space-y-1.5 text-left border-t border-slate-100 pt-4 px-1">
+                <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-bold">Chronological Corridor:</p>
+                <p className="text-sm font-mono text-indigo-650 font-black leading-relaxed">
                   {ladder.join(" → ")}
                 </p>
               </div>
@@ -471,7 +624,7 @@ export default function GameBoard({
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={handleResetLevel}
-                  className="flex-1 bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 py-3 rounded-xl text-xs font-black transition cursor-pointer uppercase shadow-xs active:translate-y-0.5"
+                  className="flex-1 bg-slate-100 border border-slate-200 text-slate-650 hover:bg-slate-200 py-3 rounded-xl text-xs font-black transition cursor-pointer uppercase shadow-xs active:translate-y-0.5"
                   id="victory-replay-btn"
                 >
                   Replay Level
@@ -479,7 +632,7 @@ export default function GameBoard({
                 {onNextLevel && level.chapterId !== "custom" && level.chapterId !== "daily" && (
                   <button
                     onClick={onNextLevel}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-550 text-white py-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 border border-emerald-400/20 uppercase cursor-pointer"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-555 text-white py-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 border border-emerald-400/20 uppercase cursor-pointer"
                     id="victory-next-btn"
                   >
                     <span>Next Level</span>
@@ -500,18 +653,18 @@ export default function GameBoard({
           ) : (
             
             // Touchpad Keyboard Controls (Unvictorized state)
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 shadow-xl space-y-4">
-              <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono text-center mb-1">
+            <div className="bg-white border border-slate-200 rounded-[2rem] p-5 shadow-xs space-y-4">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono text-center mb-1">
                 Alchemist Input Board
               </h4>
 
-              <div className="space-y-2">
-                <div className="flex justify-center gap-1.5">
+              <div className="space-y-2.5">
+                <div className="flex justify-center gap-1 sm:gap-2">
                   {keysRow1.map((k) => (
                     <button
                       key={k}
                       onClick={() => handleKeyTap(k)}
-                      className="w-10 h-11 bg-slate-950/45 hover:bg-white/10 font-bold text-base rounded-lg border border-white/10 text-white shadow-lg shadow-black/20 transition-colors cursor-pointer select-none"
+                      className="w-9 h-11 sm:w-11 sm:h-13 md:w-9 md:h-11 lg:w-11 lg:h-12 xl:w-13 xl:h-14 bg-slate-100 hover:bg-slate-200 font-extrabold text-sm sm:text-lg md:text-sm lg:text-base xl:text-xl rounded-xl border border-slate-200 text-slate-800 shadow-xs hover:scale-[1.02] active:scale-95 transition-all cursor-pointer select-none"
                       id={`key-${k}`}
                     >
                       {k}
@@ -519,12 +672,12 @@ export default function GameBoard({
                   ))}
                 </div>
 
-                <div className="flex justify-center gap-1.5 max-w-[95%] mx-auto">
+                <div className="flex justify-center gap-1 sm:gap-2 max-w-[95%] mx-auto">
                   {keysRow2.map((k) => (
                     <button
                       key={k}
                       onClick={() => handleKeyTap(k)}
-                      className="w-10 h-11 bg-slate-950/45 hover:bg-white/10 font-bold text-base rounded-lg border border-white/10 text-white shadow-lg shadow-black/20 transition-colors cursor-pointer select-none"
+                      className="w-9 h-11 sm:w-11 sm:h-13 md:w-9 md:h-11 lg:w-11 lg:h-12 xl:w-13 xl:h-14 bg-slate-100 hover:bg-slate-200 font-extrabold text-sm sm:text-lg md:text-sm lg:text-base xl:text-xl rounded-xl border border-slate-200 text-slate-800 shadow-xs hover:scale-[1.02] active:scale-95 transition-all cursor-pointer select-none"
                       id={`key-${k}`}
                     >
                       {k}
@@ -532,7 +685,7 @@ export default function GameBoard({
                   ))}
                 </div>
 
-                <div className="flex justify-center gap-1.5">
+                <div className="flex justify-center gap-1 sm:gap-2">
                   {keysRow3.map((k) => {
                     const isBack = k === "BACK";
                     const isEnter = k === "ENTER";
@@ -540,12 +693,12 @@ export default function GameBoard({
                       <button
                         key={k}
                         onClick={() => handleKeyTap(k)}
-                        className={`h-11 rounded-lg text-xs font-black uppercase select-none transition cursor-pointer ${
+                        className={`h-11 sm:h-13 md:h-11 lg:h-12 xl:h-14 rounded-xl text-xs sm:text-sm md:text-xs xl:text-base font-black uppercase select-none active:scale-95 transition-all cursor-pointer ${
                           isBack 
-                            ? "w-16 bg-rose-600/20 text-rose-300 hover:bg-rose-600/35 border border-rose-500/30 font-bold" 
+                            ? "w-14 sm:w-20 md:w-16 lg:w-20 xl:w-24 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 hover:scale-[1.02]" 
                             : isEnter 
-                            ? "w-20 bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400/20 font-bold" 
-                            : "w-10 bg-slate-950/45 hover:bg-white/10 text-white border border-white/10 text-base"
+                            ? "w-18 sm:w-24 md:w-20 lg:w-24 xl:w-28 bg-indigo-650 hover:bg-indigo-700 text-white border border-indigo-400 hover:scale-[1.02]" 
+                            : "w-9 sm:w-11 md:w-9 lg:w-11 xl:w-13 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-205 hover:scale-[1.02]"
                         }`}
                         id={`key-${k}`}
                       >
@@ -557,14 +710,14 @@ export default function GameBoard({
               </div>
 
               {/* Smart Hints Buttons */}
-              <div className="pt-3.5 border-t border-white/5 flex justify-between items-center text-xs">
-                <span className="text-slate-500 font-mono font-bold">Stuck at "{ladder[ladder.length - 1]}"?</span>
+              <div className="pt-3.5 border-t border-slate-100 flex justify-between items-center text-xs">
+                <span className="text-slate-550 font-mono font-bold">Stuck at "{ladder[ladder.length - 1]}"?</span>
                 <button
                   onClick={handleRequestHint}
-                  className="flex items-center gap-1.5 text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 px-4 py-2 rounded-xl transition cursor-pointer text-xs font-extrabold shadow-xs"
+                  className="flex items-center gap-1.5 text-indigo-650 bg-indigo-50 hover:bg-indigo-100 border border-indigo-150 px-4 py-2 rounded-xl transition cursor-pointer text-xs font-extrabold shadow-sm"
                   id="ask-hint-btn"
                 >
-                  <Lightbulb className="w-4 h-4 text-amber-400 fill-amber-300/10" />
+                  <Lightbulb className="w-4 h-4 text-amber-500 fill-amber-300/10" />
                   <span>Use Hint</span>
                 </button>
               </div>
@@ -576,61 +729,140 @@ export default function GameBoard({
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-sky-500/15 backdrop-blur-md border border-sky-400/30 rounded-2xl p-4 text-white space-y-2 shadow-sky-500/5 relative"
+              className="bg-sky-50 border border-sky-150 rounded-2xl p-4 text-[#0369a1] space-y-3 shadow-xs relative w-full text-left"
               id="hint-oracle-display"
             >
               <div className="flex justify-between items-start">
-                <div className="flex items-center gap-1.5 font-black text-xs uppercase tracking-widest text-[#FDF6E3]">
-                  <Sparkles className="w-4 h-4 text-amber-400 fill-amber-400/10 animate-pulse" />
-                  <span className="text-sky-300">Oracle Suggestion</span>
+                <div className="flex items-center gap-1.5 font-black text-xs uppercase tracking-widest text-[#0369a1]">
+                  <Sparkles className="w-4 h-4 text-sky-600 animate-pulse" />
+                  <span>Oracle Suggestion</span>
                 </div>
                 <button 
                   onClick={() => {
                     setRevealHint(false);
                     setActiveHint(null);
                   }}
-                  className="text-white hover:opacity-80 transition cursor-pointer"
+                  className="text-sky-700 hover:opacity-80 transition cursor-pointer"
                   id="close-hint-display-btn"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-slate-200 text-xs sm:text-sm font-medium leading-relaxed">
+              <p className="text-sky-905 text-xs sm:text-sm font-bold leading-relaxed bg-sky-100/50 p-3 rounded-xl border border-sky-200/50">
                 {activeHint.explanation}
               </p>
-              <p className="text-[9px] font-mono text-sky-400 font-bold">
+
+              {/* Dynamic Dictionary Hint Content */}
+              <div className="bg-white/95 p-3.5 rounded-xl border border-sky-200/60 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] text-sky-700 font-mono font-bold uppercase tracking-wider">
+                  <BookOpen className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Dynamic Context Clue</span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-mono font-black text-sm text-sky-900 uppercase tracking-widest">{activeHint.nextWord}</span>
+                  {hintDefinition?.phonetic && <span className="text-[10px] text-sky-600 font-mono italic">{hintDefinition.phonetic}</span>}
+                  {hintDefinition?.partOfSpeech && <span className="text-[9px] font-mono bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-widest">{hintDefinition.partOfSpeech}</span>}
+                </div>
+                {isFetchingHintDefinition ? (
+                  <div className="space-y-1.5 py-1">
+                    <div className="h-3 bg-sky-100 animate-pulse rounded-md w-full"></div>
+                    <div className="h-3 bg-sky-100 animate-pulse rounded-md w-5/6"></div>
+                  </div>
+                ) : (
+                  <p className="text-sky-800 text-xs leading-relaxed italic">
+                    "{hintDefinition?.definition || "A valid target vocabulary transition step."}"
+                  </p>
+                )}
+              </div>
+
+              <p className="text-[9px] font-mono text-sky-600 font-bold">
                 * Seeking hints increases step calculations but guides you to victory!
               </p>
             </motion.div>
           )}
 
           {/* Dictionary Lookups drawer panel */}
-          {activeDefinitionWord && (
-            <div className="p-5 bg-slate-900/90 backdrop-blur-xl text-slate-100 border border-white/10 rounded-[2rem] space-y-2.5 relative shadow-2xl">
-              <button 
-                onClick={() => setActiveDefinitionWord(null)}
-                className="absolute right-4.5 top-4.5 text-slate-400 hover:text-white transition cursor-pointer"
-                id="close-definition-btn"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-1.5 text-[10px] text-amber-400 font-bold font-mono uppercase tracking-wider">
-                <BookOpen className="w-4 h-4 text-amber-400" />
-                <span>Glossary Codex</span>
+          <div className="bg-white border border-slate-200 rounded-[2rem] p-5 shadow-xs space-y-4 w-full text-left">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[10px] text-amber-600 font-bold font-mono uppercase tracking-wider">
+                <BookOpen className="w-4 h-4 text-amber-500" />
+                <span>Glossary Codex Scanner</span>
               </div>
-              <h4 className="font-semibold text-lg font-mono uppercase tracking-widest text-white">
-                {activeDefinitionWord}
-              </h4>
-              <p className="text-slate-300 text-xs leading-relaxed italic bg-black/20 p-3.5 rounded-xl border border-white/5">
-                "{OFFLINE_DICTIONARY[activeDefinitionWord.toLowerCase().trim()]}"
-              </p>
+              {activeDefinitionWord && (
+                <button 
+                  onClick={() => {
+                    setActiveDefinitionWord(null);
+                    setDictionarySearchQuery("");
+                  }}
+                  className="text-[10px] text-rose-500 hover:underline font-mono uppercase tracking-wider cursor-pointer"
+                >
+                  Clear Selection
+                </button>
+              )}
             </div>
-          )}
+
+            {/* Quick search input lookup feature */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Scan any word..."
+                value={dictionarySearchQuery}
+                maxLength={6}
+                onChange={(e) => setDictionarySearchQuery(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && dictionarySearchQuery.trim()) {
+                    handleShowWordDefinition(dictionarySearchQuery.trim());
+                  }
+                }}
+                className="flex-1 bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2 text-xs font-mono tracking-widest uppercase focus:outline-hidden focus:ring-1 focus:ring-amber-500 transition"
+              />
+              <button
+                onClick={() => {
+                  if (dictionarySearchQuery.trim()) {
+                    handleShowWordDefinition(dictionarySearchQuery.trim());
+                  }
+                }}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 py-2 rounded-xl text-xs uppercase cursor-pointer transition select-none"
+              >
+                Scan
+              </button>
+            </div>
+
+            {activeDefinitionWord && (
+              <div className="p-4 bg-amber-50/40 border border-amber-200/60 rounded-2xl space-y-2.5 relative animate-fade-in">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <h4 className="font-bold text-base font-mono uppercase tracking-widest text-slate-800">
+                    {activeDefinitionWord}
+                  </h4>
+                  {fetchedDefinition?.phonetic && (
+                    <span className="text-xs text-slate-500 font-mono bg-white border border-slate-100 px-1.5 py-0.5 rounded-md">{fetchedDefinition.phonetic}</span>
+                  )}
+                  {fetchedDefinition?.partOfSpeech && (
+                    <span className="text-[9px] font-mono bg-amber-100 border border-amber-200 text-amber-800 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">{fetchedDefinition.partOfSpeech}</span>
+                  )}
+                </div>
+
+                {isFetchingDefinition ? (
+                  <div className="space-y-1.5 py-1">
+                    <div className="h-3 bg-slate-250 animate-pulse rounded-md w-full"></div>
+                    <div className="h-3 bg-slate-250 animate-pulse rounded-md w-5/6"></div>
+                  </div>
+                ) : (
+                  <p className="text-slate-700 text-xs leading-relaxed italic bg-white p-3 rounded-xl border border-slate-150">
+                    "{fetchedDefinition?.definition || "A valid English Scrabble word."}"
+                  </p>
+                )}
+                <p className="text-[8px] font-mono text-slate-400">
+                  * Dynamic lookup resolved live via Scrabble Standard Dictionary API.
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* If there's an error displayed */}
           {errorMessage && (
-            <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-2xl flex items-center gap-2 text-xs">
-              <span className="text-rose-400 font-black text-sm flex-shrink-0">⚠️</span>
+            <div className="p-3.5 bg-rose-50 border border-rose-250 text-rose-700 rounded-2xl flex items-center gap-2 text-xs font-bold animate-shake">
+              <span className="text-rose-500 font-black text-sm flex-shrink-0">⚠️</span>
               <p className="font-semibold">{errorMessage}</p>
             </div>
           )}

@@ -276,16 +276,16 @@ export default function App() {
   const activeUnlcokedBadge = ACHIEVEMENTS.find(a => a.id === newAchievementUnlocked);
 
   const typographyClassName = dyslexicFont 
-    ? "font-sans tracking-wide leading-relaxed font-semibold transition-all text-white" 
-    : "font-sans leading-normal text-slate-200 transition-all";
+    ? "font-sans tracking-wide leading-relaxed font-semibold transition-all text-slate-900" 
+    : "font-sans leading-normal text-slate-700 transition-all";
 
   return (
-    <div className={`min-h-screen bg-[#0B0F19] bg-gradient-to-br from-[#0a0d18] via-[#0f172a] to-[#1a1330] flex flex-col justify-between text-slate-100 ${typographyClassName} relative overflow-hidden`}>
+    <div className={`min-h-screen bg-white bg-gradient-to-br from-slate-50 via-slate-100 to-indigo-50/20 flex flex-col justify-between text-slate-800 ${typographyClassName} relative overflow-hidden`}>
       {/* Aurora blur elements in background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[130px] animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-500/5 blur-[130px] animate-pulse" style={{ animationDuration: "12s" }} />
-        <div className="absolute top-[40%] right-[10%] w-[40%] h-[40%] rounded-full bg-violet-600/80 blur-[140px] opacity-10 animate-pulse" style={{ animationDuration: "9s" }} />
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/5 blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-500/5 blur-[120px] animate-pulse" style={{ animationDuration: "12s" }} />
+        <div className="absolute top-[40%] right-[10%] w-[40%] h-[40%] rounded-full bg-violet-500/5 blur-[130px] opacity-10 animate-pulse" style={{ animationDuration: "9s" }} />
       </div>
 
       <div className="relative z-10 flex flex-col min-h-screen justify-between w-full">
@@ -366,10 +366,10 @@ export default function App() {
         </main>
 
         {/* 3. Global footer */}
-        <footer className="w-full bg-slate-950/30 backdrop-blur-md border-t border-white/5 py-6 text-center text-xs font-mono text-slate-500">
+        <footer className="w-full bg-white/70 backdrop-blur-md border-t border-slate-200/80 py-6 text-center text-xs font-mono text-slate-500">
           <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
             <span>Word Ladder Quest v1.2 • Offline Alchemist Engine</span>
-            <span className="text-[10px] text-slate-600">Ambient Glass Edition • Responsive Layout</span>
+            <span className="text-[10px] text-slate-400">Ambient Light Glass Edition • Responsive Layout</span>
           </div>
         </footer>
 
@@ -381,21 +381,21 @@ export default function App() {
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 20 }}
-                className="bg-slate-900/80 backdrop-blur-xl rounded-3xl p-6 text-center max-w-sm w-full space-y-4 shadow-2xl border border-white/10"
+                className="bg-white/95 backdrop-blur-xl rounded-3xl p-6 text-center max-w-sm w-full space-y-4 shadow-2xl border border-slate-200"
                 id="achievement-alert-dialog"
               >
-                <div className="w-16 h-16 bg-amber-500/10 text-amber-400 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-amber-500/5">
+                <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-amber-500/5">
                   <Award className="w-8 h-8 fill-amber-500/20 animate-bounce" />
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-amber-600 font-bold">
                     ACCOMPLISHMENT UNLOCKED
                   </span>
-                  <h3 className="font-extrabold text-white text-lg">
+                  <h3 className="font-extrabold text-slate-900 text-lg">
                     {activeUnlcokedBadge.title}
                   </h3>
-                  <p className="text-slate-300 text-xs leading-relaxed">
+                  <p className="text-slate-650 text-xs leading-relaxed">
                     {activeUnlcokedBadge.description}
                   </p>
                 </div>

@@ -79,8 +79,8 @@ export const CHAPTERS: Chapter[] = [
         chapterId: "ch2",
         title: "Library Corner",
         startWord: "BOON",
-        targetWord: "BOOK",
-        par: 1,
+        targetWord: "COOP",
+        par: 3,
         difficulty: "Easy"
       },
       {
