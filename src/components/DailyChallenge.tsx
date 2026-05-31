@@ -175,14 +175,21 @@ export default function DailyChallenge({ stats, onPlayDaily }: DailyChallengePro
                 {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                   <span key={i} className="text-indigo-600 font-black">{d}</span>
                 ))}
-                {Array.from({ length: 28 }).map((_, idx) => {
+                
+                {/* Spacers for month start weekday offset */}
+                {Array.from({ length: new Date(today.getFullYear(), today.getMonth(), 1).getDay() }).map((_, idx) => (
+                  <span key={`empty-${idx}`} className="py-1.5" />
+                ))}
+
+                {Array.from({ length: new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() }).map((_, idx) => {
                   const dayNum = idx + 1;
                   const isToday = dayNum === today.getDate();
-                  const solved = isToday && isDailySolved;
+                  const checkDailyId = `daily-${today.getFullYear()}-${today.getMonth() + 1}-${dayNum}`;
+                  const solved = stats.completedLevels[checkDailyId] !== undefined;
 
                   return (
                     <span 
-                      key={idx} 
+                      key={dayNum} 
                       className={`py-1.5 rounded-md font-bold border transition-all ${
                         solved 
                           ? "bg-emerald-50 text-emerald-600 border-emerald-300 font-black shadow-sm" 
