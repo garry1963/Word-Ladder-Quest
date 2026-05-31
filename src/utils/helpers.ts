@@ -25,6 +25,85 @@ export function areWordsOneLetterApart(word1: string, word2: string): boolean {
 }
 
 /**
+ * A date-seeded pseudo-random number generator (LCG)
+ */
+export function getSeededRandom(seed: number) {
+  let val = seed;
+  return function() {
+    val = (val * 1664525 + 1013904223) % 4294967296;
+    return val / 4294967296;
+  };
+}
+
+/**
+ * Deterministically generates a solvable pair given a seed, word length, and step constraints.
+ */
+export function getSeededSolvablePair(
+  wordLength: number,
+  dictionary: Set<string>,
+  seed: number,
+  minSteps: number = 3,
+  maxSteps: number = 5
+): { start: string; end: string; path: string[] } {
+  const rand = getSeededRandom(seed);
+  const dictSet = dictionary;
+  const list = Array.from(dictSet).filter(w => w.length === wordLength);
+
+  if (list.length < 2) {
+    if (wordLength === 3) return { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] };
+    if (wordLength === 4) return { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] };
+    return { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] };
+  }
+
+  // Attempt to select a pair with exact step size
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const startIdx = Math.floor(rand() * list.length);
+    const endIdx = Math.floor(rand() * list.length);
+    const start = list[startIdx];
+    const end = list[endIdx];
+
+    if (start === end) continue;
+
+    const path = findShortestPath(start, end, dictSet);
+    if (path && path.length >= minSteps && path.length <= maxSteps + 1) {
+      return {
+        start: start.toUpperCase(),
+        end: end.toUpperCase(),
+        path: path.map(w => w.toUpperCase())
+      };
+    }
+  }
+
+  // Broaden parameters if strict match is unsuccessful
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const startIdx = Math.floor(rand() * list.length);
+    const endIdx = Math.floor(rand() * list.length);
+    const start = list[startIdx];
+    const end = list[endIdx];
+
+    if (start === end) continue;
+
+    const path = findShortestPath(start, end, dictSet);
+    if (path && path.length >= 2) {
+      return {
+        start: start.toUpperCase(),
+        end: end.toUpperCase(),
+        path: path.map(w => w.toUpperCase())
+      };
+    }
+  }
+
+  // Absolute fallbacks
+  if (wordLength === 3) {
+    return { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] };
+  } else if (wordLength === 4) {
+    return { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] };
+  } else {
+    return { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] };
+  }
+}
+
+/**
  * Uses Breadth-First Search (BFS) to find the shortest path from start Word to end Word.
  * Relies on the provided offline dictionary Set.
  */

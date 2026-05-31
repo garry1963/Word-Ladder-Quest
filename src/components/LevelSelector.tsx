@@ -13,10 +13,14 @@ import {
   Play, 
   CheckCircle2, 
   Info,
-  Trophy
+  Trophy,
+  Sparkles,
+  RefreshCw
 } from "lucide-react";
 import { CHAPTERS } from "../data/levels";
 import { Level, PlayerStats, Chapter } from "../types";
+import { ALL_WORDS_SET } from "../utils/dictionary";
+import { getRandomSolvablePair } from "../utils/helpers";
 
 interface LevelSelectorProps {
   stats: PlayerStats;
@@ -25,6 +29,43 @@ interface LevelSelectorProps {
 
 export default function LevelSelector({ stats, onSelectLevel }: LevelSelectorProps) {
   const [selectedChapterId, setSelectedChapterId] = useState<string>("ch1");
+
+  const [quickDifficulty, setQuickDifficulty] = useState<"Easy" | "Medium" | "Hard">("Medium");
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+
+  const handlePlayQuickLevel = () => {
+    setIsGenerating(true);
+    setTimeout(() => {
+      let len = 4;
+      let minS = 3;
+      let maxS = 4;
+      if (quickDifficulty === "Easy") {
+        len = 3;
+        minS = 3;
+        maxS = 3;
+      } else if (quickDifficulty === "Hard") {
+        len = 5;
+        minS = 4;
+        maxS = 5;
+      }
+
+      const pair = getRandomSolvablePair(len, ALL_WORDS_SET, minS, maxS);
+      if (pair) {
+        const parVal = pair.path.length - 1;
+        const dynamicLevel: Level = {
+          id: `custom-quick-${quickDifficulty.toLowerCase()}-${Date.now()}`,
+          chapterId: "custom",
+          title: `Dynamic Quick Stage (${quickDifficulty})`,
+          startWord: pair.start,
+          targetWord: pair.end,
+          par: parVal,
+          difficulty: quickDifficulty
+        };
+        onSelectLevel(dynamicLevel);
+      }
+      setIsGenerating(false);
+    }, 50);
+  };
 
   // Determine if a chapter is unlocked
   const isChapterUnlocked = (chapter: Chapter): boolean => {
@@ -80,6 +121,57 @@ export default function LevelSelector({ stats, onSelectLevel }: LevelSelectorPro
               {Object.keys(stats.completedLevels).length} / {CHAPTERS.reduce((acc, ch) => acc + ch.levels.length, 0)} Solved
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Quick Stage Generator Panel / Interactive Lab */}
+      <div className="bg-white border border-slate-200/80 rounded-[2rem] p-6 mb-8 shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden" id="quick-stage-generator-panel">
+        <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl" />
+        
+        <div className="space-y-1 z-10">
+          <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wider">
+            <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500/10" />
+            <span>Instant Alchemy Lab</span>
+          </div>
+          <h3 className="font-extrabold text-slate-900 text-sm sm:text-base uppercase tracking-tight">Dynamic Quick Stage Dispatcher</h3>
+          <p className="text-xs text-slate-505 font-semibold">
+            Instantly synthesize a randomized, fully solvable word ladder mutation sequence matching your criteria!
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto z-10">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+            <label htmlFor="quick-difficulty-selector" className="text-[10px] font-mono font-black text-slate-400 tracking-wide uppercase">Tier:</label>
+            <select
+              id="quick-difficulty-selector"
+              value={quickDifficulty}
+              onChange={(e) => setQuickDifficulty(e.target.value as any)}
+              className="bg-transparent border-0 text-xs font-black font-semi text-indigo-750 tracking-wider focus:ring-0 focus:outline-hidden cursor-pointer uppercase text-slate-800"
+            >
+              <option value="Easy">Easy (3 Letters)</option>
+              <option value="Medium">Medium (4 Letters)</option>
+              <option value="Hard">Hard (5 Letters)</option>
+            </select>
+          </div>
+
+          <button
+            onClick={handlePlayQuickLevel}
+            disabled={isGenerating}
+            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-550 disabled:bg-slate-300 text-white font-mono font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl shadow-md border border-indigo-500/15 cursor-pointer select-none active:scale-95 transition-all w-full sm:w-auto"
+            id="play-quick-stage-btn"
+          >
+            {isGenerating ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Synthesizing...</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3 h-3 fill-white" />
+                <span>Instantiate Stage</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
