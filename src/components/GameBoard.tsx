@@ -414,10 +414,10 @@ export default function GameBoard({
       </div>
 
       {/* Main Split Layout: Ladder on left, Touch pad / helper on right */}
-      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+      <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* LEFT COLUMN: The Interactive Word Ladder representation */}
-        <div className="md:col-span-6 bg-white border border-slate-220 rounded-[2rem] p-6 shadow-sm flex flex-col items-center space-y-5">
+        <div className="lg:col-span-6 bg-white border border-slate-220 rounded-[2rem] p-6 shadow-sm flex flex-col items-center space-y-5">
           
           {/* Par and Target specs inside custom pill */}
           <div className="flex justify-between items-center w-full bg-slate-50 border border-slate-150 px-4 py-3 rounded-2xl text-xs text-slate-700 shadow-inner">
@@ -572,7 +572,7 @@ export default function GameBoard({
         </div>
 
         {/* RIGHT COLUMN: Touch Pad Keyboard and Smart Hint Box */}
-        <div className="md:col-span-6 space-y-6">
+        <div className="lg:col-span-6 space-y-6 w-full">
                {/* Victory Overlay if Solved! */}
           {isVictor ? (
             <motion.div 
@@ -664,7 +664,7 @@ export default function GameBoard({
                     <button
                       key={k}
                       onClick={() => handleKeyTap(k)}
-                      className="w-9 h-11 sm:w-11 sm:h-13 md:w-9 md:h-11 lg:w-11 lg:h-12 xl:w-13 xl:h-14 bg-slate-100 hover:bg-slate-200 font-extrabold text-sm sm:text-lg md:text-sm lg:text-base xl:text-xl rounded-xl border border-slate-200 text-slate-800 shadow-xs hover:scale-[1.02] active:scale-95 transition-all cursor-pointer select-none"
+                      className="w-8 h-11 sm:w-12 sm:h-14 md:w-14 md:h-16 lg:w-10 lg:h-12 xl:w-12 xl:h-14 bg-slate-100 hover:bg-slate-200 font-extrabold text-sm sm:text-lg md:text-xl lg:text-base xl:text-xl rounded-xl border border-slate-200 text-slate-800 shadow-xs hover:scale-[1.02] active:scale-95 transition-all cursor-pointer select-none"
                       id={`key-${k}`}
                     >
                       {k}
@@ -677,7 +677,7 @@ export default function GameBoard({
                     <button
                       key={k}
                       onClick={() => handleKeyTap(k)}
-                      className="w-9 h-11 sm:w-11 sm:h-13 md:w-9 md:h-11 lg:w-11 lg:h-12 xl:w-13 xl:h-14 bg-slate-100 hover:bg-slate-200 font-extrabold text-sm sm:text-lg md:text-sm lg:text-base xl:text-xl rounded-xl border border-slate-200 text-slate-800 shadow-xs hover:scale-[1.02] active:scale-95 transition-all cursor-pointer select-none"
+                      className="w-8 h-11 sm:w-12 sm:h-14 md:w-14 md:h-16 lg:w-10 lg:h-12 xl:w-12 xl:h-14 bg-slate-100 hover:bg-slate-200 font-extrabold text-sm sm:text-lg md:text-xl lg:text-base xl:text-xl rounded-xl border border-slate-200 text-slate-800 shadow-xs hover:scale-[1.02] active:scale-95 transition-all cursor-pointer select-none"
                       id={`key-${k}`}
                     >
                       {k}
@@ -693,12 +693,12 @@ export default function GameBoard({
                       <button
                         key={k}
                         onClick={() => handleKeyTap(k)}
-                        className={`h-11 sm:h-13 md:h-11 lg:h-12 xl:h-14 rounded-xl text-xs sm:text-sm md:text-xs xl:text-base font-black uppercase select-none active:scale-95 transition-all cursor-pointer ${
+                        className={`h-11 sm:h-14 md:h-16 lg:h-12 xl:h-14 rounded-xl text-xs sm:text-sm md:text-lg lg:text-sm xl:text-base font-black uppercase select-none active:scale-95 transition-all cursor-pointer ${
                           isBack 
-                            ? "w-14 sm:w-20 md:w-16 lg:w-20 xl:w-24 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 hover:scale-[1.02]" 
+                            ? "w-14 sm:w-22 md:w-26 lg:w-18 xl:w-20 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 hover:scale-[1.02]" 
                             : isEnter 
-                            ? "w-18 sm:w-24 md:w-20 lg:w-24 xl:w-28 bg-indigo-650 hover:bg-indigo-700 text-white border border-indigo-400 hover:scale-[1.02]" 
-                            : "w-9 sm:w-11 md:w-9 lg:w-11 xl:w-13 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-205 hover:scale-[1.02]"
+                            ? "w-18 sm:w-26 md:w-32 lg:w-22 xl:w-24 bg-indigo-650 hover:bg-indigo-700 text-white border border-indigo-400 hover:scale-[1.02]" 
+                            : "w-8 sm:w-12 md:w-14 lg:w-10 xl:w-12 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-205 hover:scale-[1.02]"
                         }`}
                         id={`key-${k}`}
                       >
