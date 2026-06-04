@@ -71,19 +71,21 @@ export default function LevelSelector({ stats, onSelectLevel }: LevelSelectorPro
   const isChapterUnlocked = (chapter: Chapter): boolean => {
     if (chapter.id === "ch1") return true;
 
-    // To unlock Chapter 2, need at least 3 levels solved in Chapter 1
+    // To unlock Chapter 2, need at least 3 levels solved in Chapter 1 historically
     if (chapter.id === "ch2") {
-      const ch1LevelsSolved = CHAPTERS[0].levels.filter(
-        (lvl) => stats.completedLevels[lvl.id] !== undefined
-      ).length;
+      const ch1LevelsSolved = CHAPTERS[0].levels.filter((lvl) => {
+        const baseId = lvl.id.split("-").slice(0, 2).join("-");
+        return Object.keys(stats.completedLevels).some((key) => key.startsWith(baseId));
+      }).length;
       return ch1LevelsSolved >= 3;
     }
 
-    // To unlock Chapter 3, need at least 3 levels solved in Chapter 2
+    // To unlock Chapter 3, need at least 3 levels solved in Chapter 2 historically
     if (chapter.id === "ch3") {
-      const ch2LevelsSolved = CHAPTERS[1].levels.filter(
-        (lvl) => stats.completedLevels[lvl.id] !== undefined
-      ).length;
+      const ch2LevelsSolved = CHAPTERS[1].levels.filter((lvl) => {
+        const baseId = lvl.id.split("-").slice(0, 2).join("-");
+        return Object.keys(stats.completedLevels).some((key) => key.startsWith(baseId));
+      }).length;
       return ch2LevelsSolved >= 3;
     }
 

@@ -3,7 +3,38 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Chapter } from "../types";
+import { Chapter, Level } from "../types";
+import { ALL_WORDS_SET } from "../utils/dictionary";
+import { getSeededSolvablePair } from "../utils/helpers";
+
+// Get seed based on current local date
+const today = new Date();
+const todaySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+
+function generateDailyLevel(
+  idPrefix: string,
+  chapterId: string,
+  title: string,
+  wordLength: number,
+  difficulty: "Easy" | "Medium" | "Hard" | "Expert",
+  minSteps: number,
+  maxSteps: number,
+  index: number
+): Level {
+  // Use a unique deterministic seed per level
+  const seed = todaySeed + index * 98765 + wordLength * 123;
+  const pair = getSeededSolvablePair(wordLength, ALL_WORDS_SET, seed, minSteps, maxSteps);
+  
+  return {
+    id: `${idPrefix}-${todaySeed}`,
+    chapterId,
+    title,
+    startWord: pair.start,
+    targetWord: pair.end,
+    par: pair.path.length - 1,
+    difficulty
+  };
+}
 
 export const CHAPTERS: Chapter[] = [
   {
@@ -12,51 +43,11 @@ export const CHAPTERS: Chapter[] = [
     description: "Begin your quest with quick, elegant 3-letter word ladders. Warm up your vocabulary engines!",
     wordLength: 3,
     levels: [
-      {
-        id: "ch1-1",
-        chapterId: "ch1",
-        title: "Pet Swap",
-        startWord: "CAT",
-        targetWord: "DOG",
-        par: 3,
-        difficulty: "Easy"
-      },
-      {
-        id: "ch1-2",
-        chapterId: "ch1",
-        title: "Sunrise Magic",
-        startWord: "SUN",
-        targetWord: "TEN",
-        par: 3,
-        difficulty: "Easy"
-      },
-      {
-        id: "ch1-3",
-        chapterId: "ch1",
-        title: "Ink Spills",
-        startWord: "PEN",
-        targetWord: "FIT",
-        par: 4,
-        difficulty: "Medium"
-      },
-      {
-        id: "ch1-4",
-        chapterId: "ch1",
-        title: "Field Trip",
-        startWord: "BUG",
-        targetWord: "RUN",
-        par: 4,
-        difficulty: "Medium"
-      },
-      {
-        id: "ch1-5",
-        chapterId: "ch1",
-        title: "Light & Dark",
-        startWord: "DAY",
-        targetWord: "WET",
-        par: 5,
-        difficulty: "Hard"
-      }
+      generateDailyLevel("ch1-1", "ch1", "Pet Swap", 3, "Easy", 3, 3, 0),
+      generateDailyLevel("ch1-2", "ch1", "Sunrise Magic", 3, "Easy", 3, 4, 1),
+      generateDailyLevel("ch1-3", "ch1", "Ink Spills", 3, "Medium", 4, 4, 2),
+      generateDailyLevel("ch1-4", "ch1", "Field Trip", 3, "Medium", 4, 5, 3),
+      generateDailyLevel("ch1-5", "ch1", "Light & Dark", 3, "Hard", 5, 6, 4)
     ]
   },
   {
@@ -65,51 +56,11 @@ export const CHAPTERS: Chapter[] = [
     description: "Expand your mind to 4-letter vocabulary. Discover hidden corridors and optimal step progressions.",
     wordLength: 4,
     levels: [
-      {
-        id: "ch2-1",
-        chapterId: "ch2",
-        title: "Climate Shifter",
-        startWord: "COLD",
-        targetWord: "WARM",
-        par: 4,
-        difficulty: "Easy"
-      },
-      {
-        id: "ch2-2",
-        chapterId: "ch2",
-        title: "Library Corner",
-        startWord: "BOON",
-        targetWord: "COOP",
-        par: 3,
-        difficulty: "Easy"
-      },
-      {
-        id: "ch2-3",
-        chapterId: "ch2",
-        title: "Key & Locker",
-        startWord: "SOCK",
-        targetWord: "BACK",
-        par: 3,
-        difficulty: "Medium"
-      },
-      {
-        id: "ch2-4",
-        chapterId: "ch2",
-        title: "Secret Whisper",
-        startWord: "MIND",
-        targetWord: "FINE",
-        par: 3,
-        difficulty: "Hard"
-      },
-      {
-        id: "ch2-5",
-        chapterId: "ch2",
-        title: "Sovereign Zone",
-        startWord: "BARE",
-        targetWord: "TONE",
-        par: 4,
-        difficulty: "Expert"
-      }
+      generateDailyLevel("ch2-1", "ch2", "Climate Shifter", 4, "Easy", 3, 3, 5),
+      generateDailyLevel("ch2-2", "ch2", "Library Corner", 4, "Easy", 3, 4, 6),
+      generateDailyLevel("ch2-3", "ch2", "Key & Locker", 4, "Medium", 4, 4, 7),
+      generateDailyLevel("ch2-4", "ch2", "Secret Whisper", 4, "Hard", 4, 5, 8),
+      generateDailyLevel("ch2-5", "ch2", "Sovereign Zone", 4, "Expert", 5, 6, 9)
     ]
   },
   {
@@ -118,51 +69,11 @@ export const CHAPTERS: Chapter[] = [
     description: "Challenge yourself with the ultimate 5-letter word grids. True test of spatial vocabulary and quick thinking.",
     wordLength: 5,
     levels: [
-      {
-        id: "ch3-1",
-        chapterId: "ch3",
-        title: "Ocean Hunter",
-        startWord: "SHARK",
-        targetWord: "SMART",
-        par: 4,
-        difficulty: "Easy"
-      },
-      {
-        id: "ch3-2",
-        chapterId: "ch3",
-        title: "Night Rest",
-        startWord: "SLEEP",
-        targetWord: "SWEET",
-        par: 3,
-        difficulty: "Medium"
-      },
-      {
-        id: "ch3-3",
-        chapterId: "ch3",
-        title: "Cosmic Glow",
-        startWord: "SHINE",
-        targetWord: "CHORE",
-        par: 4,
-        difficulty: "Hard"
-      },
-      {
-        id: "ch3-4",
-        chapterId: "ch3",
-        title: "Slate Canvas",
-        startWord: "BLACK",
-        targetWord: "STACK",
-        par: 2,
-        difficulty: "Medium"
-      },
-      {
-        id: "ch3-5",
-        chapterId: "ch3",
-        title: "Grand Build",
-        startWord: "DRAFT",
-        targetWord: "PLANT",
-        par: 5,
-        difficulty: "Expert"
-      }
+      generateDailyLevel("ch3-1", "ch3", "Ocean Hunter", 5, "Easy", 3, 4, 10),
+      generateDailyLevel("ch3-2", "ch3", "Night Rest", 5, "Medium", 4, 4, 11),
+      generateDailyLevel("ch3-3", "ch3", "Cosmic Glow", 5, "Hard", 5, 5, 12),
+      generateDailyLevel("ch3-4", "ch3", "Slate Canvas", 5, "Medium", 4, 4, 13),
+      generateDailyLevel("ch3-5", "ch3", "Grand Build", 5, "Expert", 6, 7, 14)
     ]
   }
 ];
