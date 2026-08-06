@@ -24,11 +24,23 @@ import {
   Zap,
   Calendar,
   BookOpen,
-  Type
+  Type,
+  PlusCircle,
+  ShieldCheck,
+  CheckCircle2,
+  Plus,
+  X
 } from "lucide-react";
 import { PlayerStats } from "../types";
 import { ACHIEVEMENTS } from "../data/levels";
-import { OFFLINE_DICTIONARY, ALL_WORDS_SET } from "../utils/dictionary";
+import { 
+  OFFLINE_DICTIONARY, 
+  ALL_WORDS_SET, 
+  getVerifiedCustomWords, 
+  addVerifiedCustomWord, 
+  removeVerifiedCustomWord, 
+  isVerifiedCustomWord 
+} from "../utils/dictionary";
 import { isSoundEnabled, setSoundEnabled } from "../utils/audio";
 
 interface StatsDashboardProps {
@@ -57,6 +69,29 @@ export default function StatsDashboard({
   const [dictionarySearch, setDictionarySearch] = useState<string>("");
   const [soundOn, setSoundOn] = useState<boolean>(isSoundEnabled());
   const [resetConfirm, setResetConfirm] = useState<boolean>(false);
+
+  // Custom Verified Wordlist states
+  const [customVerifiedWords, setCustomVerifiedWords] = useState<string[]>(() => getVerifiedCustomWords());
+  const [newCustomWordInput, setNewCustomWordInput] = useState<string>("");
+  const [customWordMessage, setCustomWordMessage] = useState<string>("");
+
+  const handleAddCustomWord = (wordToAdd: string) => {
+    const clean = wordToAdd.trim().toUpperCase();
+    if (!clean || clean.length < 3 || clean.length > 6) {
+      setCustomWordMessage("Words must be between 3 and 6 letters.");
+      return;
+    }
+    addVerifiedCustomWord(clean);
+    setCustomVerifiedWords(getVerifiedCustomWords());
+    setNewCustomWordInput("");
+    setCustomWordMessage(`"${clean}" added to your verified wordlist!`);
+    setTimeout(() => setCustomWordMessage(""), 3500);
+  };
+
+  const handleRemoveCustomWord = (wordToRemove: string) => {
+    removeVerifiedCustomWord(wordToRemove);
+    setCustomVerifiedWords(getVerifiedCustomWords());
+  };
 
   // Toggle sound setting
   const handleToggleSound = () => {
@@ -189,7 +224,7 @@ export default function StatsDashboard({
             </div>
 
             {dictionarySearch && (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-2">
                 {foundDefinition ? (
                   <div className="space-y-1.5">
                     <p className="font-bold font-mono text-indigo-650 uppercase tracking-widest text-sm flex items-center justify-between">
@@ -201,16 +236,102 @@ export default function StatsDashboard({
                 ) : isWordInDict ? (
                   <div>
                     <p className="font-bold font-mono text-indigo-650 uppercase">{dictionarySearch}</p>
-                    <p className="text-slate-500 leading-relaxed italic mt-1 font-semibold">This word is valid in-game, but no offline explanation is cached yet. Try another!</p>
+                    <p className="text-slate-500 leading-relaxed italic mt-1 font-semibold">This word is valid in-game! Try using it during your ladders.</p>
                   </div>
                 ) : (
-                  <div>
+                  <div className="space-y-2">
                     <p className="font-bold font-mono text-slate-401 uppercase">{dictionarySearch}</p>
-                    <p className="text-rose-500 leading-relaxed font-mono text-[11px] mt-1 font-bold">🚫 Word not present in our Ladder dictionary.</p>
+                    <p className="text-rose-500 leading-relaxed font-mono text-[11px] font-bold">🚫 Word not present in default dictionary.</p>
+                    {dictionarySearch.length >= 3 && dictionarySearch.length <= 6 && (
+                      <button
+                        onClick={() => handleAddCustomWord(dictionarySearch)}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+                        id="glossary-add-override-btn"
+                      >
+                        <PlusCircle className="w-4 h-4 text-indigo-200" />
+                        <span>Override & Add to Verified List</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             )}
+          </div>
+
+          {/* Custom Verified Wordlist Manager */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
+              <ShieldCheck className="w-5 h-5 text-indigo-600" />
+              <h3 className="font-extrabold text-slate-800 text-base">Verified Wordlist Override</h3>
+            </div>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+              Add valid custom or rare words to your personal verified wordlist to override dictionary validation.
+            </p>
+
+            {/* Quick add custom word */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="ADD WORD (E.G. ZEBU)..."
+                value={newCustomWordInput}
+                maxLength={6}
+                onChange={(e) => setNewCustomWordInput(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newCustomWordInput.trim()) {
+                    handleAddCustomWord(newCustomWordInput);
+                  }
+                }}
+                className="flex-1 bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2 text-xs font-mono tracking-wider focus:outline-none focus:border-indigo-500 transition"
+                id="custom-word-input"
+              />
+              <button
+                onClick={() => handleAddCustomWord(newCustomWordInput)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1 cursor-pointer transition select-none"
+                id="add-custom-word-btn"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add</span>
+              </button>
+            </div>
+
+            {customWordMessage && (
+              <p className="text-xs font-mono font-bold text-indigo-650 bg-indigo-50 border border-indigo-200 p-2.5 rounded-xl">
+                {customWordMessage}
+              </p>
+            )}
+
+            {/* Custom wordlist chips */}
+            <div className="space-y-2 pt-1">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold flex justify-between">
+                <span>Verified Custom Words</span>
+                <span>{customVerifiedWords.length} entries</span>
+              </div>
+
+              {customVerifiedWords.length === 0 ? (
+                <div className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center border border-dashed border-slate-200">
+                  No custom verified overrides added yet.
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1">
+                  {customVerifiedWords.map((w) => (
+                    <span
+                      key={w}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg text-xs font-mono font-black"
+                    >
+                      <CheckCircle2 className="w-3 h-3 text-indigo-600" />
+                      <span>{w.toUpperCase()}</span>
+                      <button
+                        onClick={() => handleRemoveCustomWord(w)}
+                        className="text-indigo-400 hover:text-rose-600 transition cursor-pointer ml-0.5"
+                        title="Remove from override list"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Setting panel drawer */}

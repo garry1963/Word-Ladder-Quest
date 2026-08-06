@@ -40,40 +40,40 @@ export const CHAPTERS: Chapter[] = [
   {
     id: "ch1",
     title: "Chapter 1: Three-Letter Sprints",
-    description: "Begin your quest with quick, elegant 3-letter word ladders. Warm up your vocabulary engines!",
+    description: "Begin your quest with elegant 3-letter word ladders. Warm up your vocabulary engines with deeper paths!",
     wordLength: 3,
     levels: [
-      generateDailyLevel("ch1-1", "ch1", "Pet Swap", 3, "Easy", 3, 3, 0),
-      generateDailyLevel("ch1-2", "ch1", "Sunrise Magic", 3, "Easy", 3, 4, 1),
-      generateDailyLevel("ch1-3", "ch1", "Ink Spills", 3, "Medium", 4, 4, 2),
-      generateDailyLevel("ch1-4", "ch1", "Field Trip", 3, "Medium", 4, 5, 3),
-      generateDailyLevel("ch1-5", "ch1", "Light & Dark", 3, "Hard", 5, 6, 4)
+      generateDailyLevel("ch1-1", "ch1", "Pet Swap", 3, "Easy", 4, 5, 0),
+      generateDailyLevel("ch1-2", "ch1", "Sunrise Magic", 3, "Easy", 4, 6, 1),
+      generateDailyLevel("ch1-3", "ch1", "Ink Spills", 3, "Medium", 5, 6, 2),
+      generateDailyLevel("ch1-4", "ch1", "Field Trip", 3, "Medium", 5, 7, 3),
+      generateDailyLevel("ch1-5", "ch1", "Light & Dark", 3, "Hard", 6, 8, 4)
     ]
   },
   {
     id: "ch2",
     title: "Chapter 2: Four-Letter Transitions",
-    description: "Expand your mind to 4-letter vocabulary. Discover hidden corridors and optimal step progressions.",
+    description: "Expand your mind to 4-letter vocabulary. Discover extended corridors and multi-step progressions.",
     wordLength: 4,
     levels: [
-      generateDailyLevel("ch2-1", "ch2", "Climate Shifter", 4, "Easy", 3, 3, 5),
-      generateDailyLevel("ch2-2", "ch2", "Library Corner", 4, "Easy", 3, 4, 6),
-      generateDailyLevel("ch2-3", "ch2", "Key & Locker", 4, "Medium", 4, 4, 7),
-      generateDailyLevel("ch2-4", "ch2", "Secret Whisper", 4, "Hard", 4, 5, 8),
-      generateDailyLevel("ch2-5", "ch2", "Sovereign Zone", 4, "Expert", 5, 6, 9)
+      generateDailyLevel("ch2-1", "ch2", "Climate Shifter", 4, "Easy", 4, 5, 5),
+      generateDailyLevel("ch2-2", "ch2", "Library Corner", 4, "Easy", 5, 6, 6),
+      generateDailyLevel("ch2-3", "ch2", "Key & Locker", 4, "Medium", 5, 7, 7),
+      generateDailyLevel("ch2-4", "ch2", "Secret Whisper", 4, "Hard", 6, 8, 8),
+      generateDailyLevel("ch2-5", "ch2", "Sovereign Zone", 4, "Expert", 7, 9, 9)
     ]
   },
   {
     id: "ch3",
     title: "Chapter 3: Five-Letter Expeditions",
-    description: "Challenge yourself with the ultimate 5-letter word grids. True test of spatial vocabulary and quick thinking.",
+    description: "Challenge yourself with multi-step 5-letter word grids. True test of spatial vocabulary and quick thinking.",
     wordLength: 5,
     levels: [
-      generateDailyLevel("ch3-1", "ch3", "Ocean Hunter", 5, "Easy", 3, 4, 10),
-      generateDailyLevel("ch3-2", "ch3", "Night Rest", 5, "Medium", 4, 4, 11),
-      generateDailyLevel("ch3-3", "ch3", "Cosmic Glow", 5, "Hard", 5, 5, 12),
-      generateDailyLevel("ch3-4", "ch3", "Slate Canvas", 5, "Medium", 4, 4, 13),
-      generateDailyLevel("ch3-5", "ch3", "Grand Build", 5, "Expert", 6, 7, 14)
+      generateDailyLevel("ch3-1", "ch3", "Ocean Hunter", 5, "Easy", 4, 5, 10),
+      generateDailyLevel("ch3-2", "ch3", "Night Rest", 5, "Medium", 5, 6, 11),
+      generateDailyLevel("ch3-3", "ch3", "Cosmic Glow", 5, "Hard", 6, 7, 12),
+      generateDailyLevel("ch3-4", "ch3", "Slate Canvas", 5, "Medium", 6, 8, 13),
+      generateDailyLevel("ch3-5", "ch3", "Grand Build", 5, "Expert", 7, 10, 14)
     ]
   }
 ];

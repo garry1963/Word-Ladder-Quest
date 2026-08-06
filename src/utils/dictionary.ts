@@ -19,6 +19,72 @@ export const ALL_WORDS_SET = new Set<string>([
   ...SIX_LETTER_WORDS,
 ]);
 
+export const LOCAL_STORAGE_KEY_VERIFIED_WORDS = "wordladder_verified_custom_words_v1";
+
+// Safely load stored custom verified words on initialization
+export function loadVerifiedCustomWords(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY_VERIFIED_WORDS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map((w: string) => w.toLowerCase().trim()).filter(Boolean);
+    }
+  } catch (e) {
+    console.error("Failed to load custom verified words", e);
+  }
+  return [];
+}
+
+// Populate ALL_WORDS_SET with existing stored custom verified words
+const initialCustomWords = loadVerifiedCustomWords();
+initialCustomWords.forEach((w) => ALL_WORDS_SET.add(w));
+
+export function getVerifiedCustomWords(): string[] {
+  return loadVerifiedCustomWords();
+}
+
+export function addVerifiedCustomWord(word: string): void {
+  const clean = word.toLowerCase().trim();
+  if (!clean) return;
+  
+  ALL_WORDS_SET.add(clean);
+
+  if (typeof window !== "undefined") {
+    try {
+      const existing = loadVerifiedCustomWords();
+      if (!existing.includes(clean)) {
+        const updated = [...existing, clean].sort();
+        localStorage.setItem(LOCAL_STORAGE_KEY_VERIFIED_WORDS, JSON.stringify(updated));
+      }
+    } catch (e) {
+      console.error("Failed to save custom verified word", e);
+    }
+  }
+}
+
+export function removeVerifiedCustomWord(word: string): void {
+  const clean = word.toLowerCase().trim();
+  if (!clean) return;
+
+  if (typeof window !== "undefined") {
+    try {
+      const existing = loadVerifiedCustomWords();
+      const updated = existing.filter((w) => w !== clean);
+      localStorage.setItem(LOCAL_STORAGE_KEY_VERIFIED_WORDS, JSON.stringify(updated));
+    } catch (e) {
+      console.error("Failed to remove custom verified word", e);
+    }
+  }
+}
+
+export function isVerifiedCustomWord(word: string): boolean {
+  const clean = word.toLowerCase().trim();
+  const customList = loadVerifiedCustomWords();
+  return customList.includes(clean);
+}
+
 // Map of common dictionary definitions to show player offline definitions
 export const OFFLINE_DICTIONARY: Record<string, string> = {
   // 3-letter

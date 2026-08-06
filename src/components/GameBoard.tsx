@@ -18,7 +18,9 @@ import {
   X,
   Volume2,
   VolumeX,
-  Lightbulb
+  Lightbulb,
+  PlusCircle,
+  Check
 } from "lucide-react";
 import { Level, PlayerStats } from "../types";
 import { 
@@ -26,7 +28,7 @@ import {
   findShortestPath, 
   areWordsOneLetterApart 
 } from "../utils/helpers";
-import { ALL_WORDS_SET, OFFLINE_DICTIONARY } from "../utils/dictionary";
+import { ALL_WORDS_SET, OFFLINE_DICTIONARY, addVerifiedCustomWord, isVerifiedCustomWord } from "../utils/dictionary";
 import { 
   playKeyTapSound, 
   playDeleteSound, 
@@ -61,7 +63,8 @@ export default function GameBoard({
 
   // Error state for validation buzzers
   const [errorFlash, setErrorFlash] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string>( "");
+  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [unverifiedCandidateWord, setUnverifiedCandidateWord] = useState<string | null>(null);
   const [isValidatingWord, setIsValidatingWord] = useState<boolean>(false);
 
   // Hint tracker state
@@ -217,6 +220,7 @@ export default function GameBoard({
     setCurrentInput("");
     setErrorFlash(false);
     setErrorMessage("");
+    setUnverifiedCandidateWord(null);
     setActiveHint(null);
     setRevealHint(false);
     setIsVictor(false);
@@ -232,6 +236,7 @@ export default function GameBoard({
       setCurrentInput((prev) => prev.slice(0, -1));
       setErrorFlash(false);
       setErrorMessage("");
+      setUnverifiedCandidateWord(null);
     } else if (char === "ENTER") {
       handleValidateStep();
     } else {
@@ -240,6 +245,7 @@ export default function GameBoard({
         setCurrentInput((prev) => prev + char);
         setErrorFlash(false);
         setErrorMessage("");
+        setUnverifiedCandidateWord(null);
       }
     }
   };
@@ -289,9 +295,13 @@ export default function GameBoard({
     }
 
     if (!inDict) {
-      triggerError(`"${candidate}" is not present in our level vocabulary directory.`);
+      setUnverifiedCandidateWord(candidate);
+      triggerError(`"${candidate}" is not present in our level wordlist.`);
       return;
     }
+
+    // Clear candidate error state on valid word
+    setUnverifiedCandidateWord(null);
 
     // Safe! Update ladder list
     playSuccessStepSound();
@@ -303,6 +313,28 @@ export default function GameBoard({
 
     // Check if target word is hit!
     if (candidate === level.targetWord.toUpperCase()) {
+      handleLevelWin(nextLadder);
+    }
+  };
+
+  // Handle user override word verification request
+  const handleOverrideWordVerification = (wordToOverride: string) => {
+    const uppercase = wordToOverride.toUpperCase();
+    addVerifiedCustomWord(uppercase);
+    
+    // Clear error
+    setErrorMessage("");
+    setUnverifiedCandidateWord(null);
+
+    // Automatically apply step with the newly verified word
+    playSuccessStepSound();
+    const nextLadder = [...ladder, uppercase];
+    setLadder(nextLadder);
+    setCurrentInput("");
+    setActiveHint(null);
+    setRevealHint(false);
+
+    if (uppercase === level.targetWord.toUpperCase()) {
       handleLevelWin(nextLadder);
     }
   };
@@ -861,9 +893,28 @@ export default function GameBoard({
 
           {/* If there's an error displayed */}
           {errorMessage && (
-            <div className="p-3.5 bg-rose-50 border border-rose-250 text-rose-700 rounded-2xl flex items-center gap-2 text-xs font-bold animate-shake">
-              <span className="text-rose-500 font-black text-sm flex-shrink-0">⚠️</span>
-              <p className="font-semibold">{errorMessage}</p>
+            <div className="p-3.5 bg-rose-50 border border-rose-250 text-rose-700 rounded-2xl flex flex-col gap-2.5 text-xs font-bold animate-shake">
+              <div className="flex items-center gap-2">
+                <span className="text-rose-500 font-black text-sm flex-shrink-0">⚠️</span>
+                <p className="font-semibold flex-1">{errorMessage}</p>
+              </div>
+
+              {/* Override verification button if word unflagged */}
+              {unverifiedCandidateWord && (
+                <div className="pt-2 border-t border-rose-200/80 flex items-center justify-between gap-2 flex-wrap bg-white/70 p-2.5 rounded-xl">
+                  <div className="text-[11px] text-slate-700 font-mono">
+                    Is <span className="font-black text-indigo-700 uppercase">{unverifiedCandidateWord}</span> a valid word?
+                  </div>
+                  <button
+                    onClick={() => handleOverrideWordVerification(unverifiedCandidateWord)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                    id="override-verify-word-btn"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-indigo-200" />
+                    <span>Override & Add to Verified Wordlist</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

@@ -33,9 +33,9 @@ export default function DailyChallenge({ stats, onPlayDaily }: DailyChallengePro
   const todaySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
 
   // Generate 3 date-seeded daily levels with varying difficulty and length
-  const easyPair = getSeededSolvablePair(3, ALL_WORDS_SET, todaySeed + 100, 3, 3);
-  const mediumPair = getSeededSolvablePair(4, ALL_WORDS_SET, todaySeed + 200, 3, 4);
-  const hardPair = getSeededSolvablePair(5, ALL_WORDS_SET, todaySeed + 300, 4, 5);
+  const easyPair = getSeededSolvablePair(3, ALL_WORDS_SET, todaySeed + 100, 4, 5);
+  const mediumPair = getSeededSolvablePair(4, ALL_WORDS_SET, todaySeed + 200, 5, 7);
+  const hardPair = getSeededSolvablePair(5, ALL_WORDS_SET, todaySeed + 300, 6, 9);
 
   const easyPar = easyPair.path.length - 1;
   const mediumPar = mediumPair.path.length - 1;

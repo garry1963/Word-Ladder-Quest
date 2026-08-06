@@ -42,8 +42,8 @@ export function getSeededSolvablePair(
   wordLength: number,
   dictionary: Set<string>,
   seed: number,
-  minSteps: number = 3,
-  maxSteps: number = 5
+  minSteps: number = 4,
+  maxSteps: number = 7
 ): { start: string; end: string; path: string[] } {
   const rand = getSeededRandom(seed);
   const dictSet = dictionary;
@@ -84,7 +84,7 @@ export function getSeededSolvablePair(
     if (start === end) continue;
 
     const path = findShortestPath(start, end, dictSet);
-    if (path && path.length >= 2) {
+    if (path && path.length >= 4) {
       return {
         start: start.toUpperCase(),
         end: end.toUpperCase(),
@@ -202,8 +202,8 @@ export function getSmartHint(
 export function getRandomSolvablePair(
   wordLength: number,
   dictionary: Set<string>,
-  minSteps: number = 3,
-  maxSteps: number = 5
+  minSteps: number = 4,
+  maxSteps: number = 7
 ): { start: string; end: string; path: string[] } | null {
   const list = Array.from(dictionary).filter(w => w.length === wordLength);
   if (list.length < 2) return null;

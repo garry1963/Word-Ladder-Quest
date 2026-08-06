@@ -17,7 +17,7 @@ import {
   EyeOff
 } from "lucide-react";
 import { findShortestPath } from "../utils/helpers";
-import { ALL_WORDS_SET } from "../utils/dictionary";
+import { ALL_WORDS_SET, addVerifiedCustomWord } from "../utils/dictionary";
 import { CustomPuzzle, Level } from "../types";
 import { playSuccessStepSound, playErrorSound } from "../utils/audio";
 
@@ -234,9 +234,41 @@ export default function PuzzleCreator({
                     ? <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" /> 
                     : <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
                   }
-                  <p className="text-xs sm:text-sm font-semibold leading-relaxed">
-                    {feedback.message}
-                  </p>
+                  <div className="space-y-2 flex-1">
+                    <p className="text-xs sm:text-sm font-semibold leading-relaxed">
+                      {feedback.message}
+                    </p>
+
+                    {/* Quick override helpers */}
+                    {feedback.status === 'error' && (
+                      <div className="flex gap-2 flex-wrap pt-1">
+                        {startInput.trim() && !ALL_WORDS_SET.has(startInput.trim().toLowerCase()) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              addVerifiedCustomWord(startInput.trim().toUpperCase());
+                              handleVerify();
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg transition cursor-pointer"
+                          >
+                            + Verify "{startInput.trim().toUpperCase()}"
+                          </button>
+                        )}
+                        {targetInput.trim() && !ALL_WORDS_SET.has(targetInput.trim().toLowerCase()) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              addVerifiedCustomWord(targetInput.trim().toUpperCase());
+                              handleVerify();
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg transition cursor-pointer"
+                          >
+                            + Verify "{targetInput.trim().toUpperCase()}"
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {feedback.status === 'success' && feedback.optimalPath && (

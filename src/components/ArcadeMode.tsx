@@ -59,7 +59,7 @@ export default function ArcadeMode({ highScore, onUpdateHighScore }: ArcadeModeP
 
   // Loads a brand new random solvable ladder pair
   const loadNewMiniLadder = (len: number) => {
-    const pair = getRandomSolvablePair(len, ALL_WORDS_SET, 2, 4);
+    const pair = getRandomSolvablePair(len, ALL_WORDS_SET, 4, 7);
     if (pair) {
       setStartWord(pair.start);
       setTargetWord(pair.end);
