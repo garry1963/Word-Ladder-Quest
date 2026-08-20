@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import scrabbleWords from "./scrabble_words.json";
+import letterpressWords from "./letterpress_words.json";
 
-// Standard Scrabble Collins (CSW) and TWL06 lists filtered by length
-export const THREE_LETTER_WORDS: string[] = scrabbleWords["3"];
-export const FOUR_LETTER_WORDS: string[] = scrabbleWords["4"];
-export const FIVE_LETTER_WORDS: string[] = scrabbleWords["5"];
-export const SIX_LETTER_WORDS: string[] = scrabbleWords["6"];
+// Letterpress Word List (Loren Brichter / Words GitHub repository)
+export const THREE_LETTER_WORDS: string[] = letterpressWords["3"];
+export const FOUR_LETTER_WORDS: string[] = letterpressWords["4"];
+export const FIVE_LETTER_WORDS: string[] = letterpressWords["5"];
+export const SIX_LETTER_WORDS: string[] = letterpressWords["6"];
 
 // Combine all sets for easy fast lookups
 export const ALL_WORDS_SET = new Set<string>([
