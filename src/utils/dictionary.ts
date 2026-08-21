@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import letterpressWords from "./letterpress_words.json";
+import scrabbleWords from "./scrabble_words.json";
 
-// Letterpress Word List (Loren Brichter / Words GitHub repository)
-export const THREE_LETTER_WORDS: string[] = letterpressWords["3"];
-export const FOUR_LETTER_WORDS: string[] = letterpressWords["4"];
-export const FIVE_LETTER_WORDS: string[] = letterpressWords["5"];
-export const SIX_LETTER_WORDS: string[] = letterpressWords["6"];
+// Standard Scrabble Collins (CSW) and TWL06 lists filtered by length
+export const THREE_LETTER_WORDS: string[] = scrabbleWords["3"];
+export const FOUR_LETTER_WORDS: string[] = scrabbleWords["4"];
+export const FIVE_LETTER_WORDS: string[] = scrabbleWords["5"];
+export const SIX_LETTER_WORDS: string[] = scrabbleWords["6"];
 
 // Combine all sets for easy fast lookups
 export const ALL_WORDS_SET = new Set<string>([
@@ -83,17 +83,6 @@ export function isVerifiedCustomWord(word: string): boolean {
   const clean = word.toLowerCase().trim();
   const customList = loadVerifiedCustomWords();
   return customList.includes(clean);
-}
-
-// Function to check if a word is in our dictionary or custom verified list
-export function isWordInDictionary(word: string): boolean {
-  if (!word) return false;
-  const clean = word.toLowerCase().trim();
-  return (
-    ALL_WORDS_SET.has(clean) ||
-    Object.prototype.hasOwnProperty.call(OFFLINE_DICTIONARY, clean) ||
-    isVerifiedCustomWord(clean)
-  );
 }
 
 // Map of common dictionary definitions to show player offline definitions
@@ -519,9 +508,3 @@ export const OFFLINE_DICTIONARY: Record<string, string> = {
   "sharp": "Having a thin edge or fine point, or showing quick intelligence.",
   "shape": "The external form, outline, or silhouette of something."
 };
-
-// Ensure all offline dictionary keys are also populated in ALL_WORDS_SET
-Object.keys(OFFLINE_DICTIONARY).forEach((word) => {
-  ALL_WORDS_SET.add(word.toLowerCase().trim());
-});
-
