@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { getRandomSolvablePair, areWordsOneLetterApart } from "../utils/helpers";
 import { ALL_WORDS_SET } from "../utils/dictionary";
+import { verifyWordWithCollins } from "../utils/collinsClient";
 import { playSuccessStepSound, playErrorSound, playLevelVictorySound } from "../utils/audio";
 
 interface ArcadeModeProps {
@@ -109,7 +110,7 @@ export default function ArcadeMode({ highScore, onUpdateHighScore }: ArcadeModeP
   };
 
   // Validate the intermediate step
-  const validateArcadeStep = () => {
+  const validateArcadeStep = async () => {
     const candidate = activeInput.trim().toUpperCase();
     const currentAnchor = ladderSteps[ladderSteps.length - 1];
 
@@ -120,9 +121,25 @@ export default function ArcadeMode({ highScore, onUpdateHighScore }: ArcadeModeP
 
     // Must be exactly one letter different from current anchor
     const isOneApart = areWordsOneLetterApart(currentAnchor, candidate);
-    const inDict = ALL_WORDS_SET.has(candidate.toLowerCase());
+    if (!isOneApart) {
+      triggerErrorFlash();
+      return;
+    }
 
-    if (!isOneApart || !inDict) {
+    let inDict = ALL_WORDS_SET.has(candidate.toLowerCase());
+    if (!inDict) {
+      try {
+        const validation = await verifyWordWithCollins(candidate.toLowerCase());
+        if (validation.valid) {
+          ALL_WORDS_SET.add(candidate.toLowerCase());
+          inDict = true;
+        }
+      } catch {
+        // Continue with unverified check
+      }
+    }
+
+    if (!inDict) {
       triggerErrorFlash();
       return;
     }

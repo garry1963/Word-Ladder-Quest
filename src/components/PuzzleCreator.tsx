@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { findShortestPath } from "../utils/helpers";
 import { ALL_WORDS_SET, addVerifiedCustomWord } from "../utils/dictionary";
+import { verifyWordWithCollins } from "../utils/collinsClient";
 import { CustomPuzzle, Level } from "../types";
 import { playSuccessStepSound, playErrorSound } from "../utils/audio";
 
@@ -47,7 +48,7 @@ export default function PuzzleCreator({
   const [showSolution, setShowSolution] = useState<boolean>(false);
 
   // Validate the inputs
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const start = startInput.trim().toUpperCase();
     const target = targetInput.trim().toUpperCase();
 
@@ -63,25 +64,51 @@ export default function PuzzleCreator({
       return;
     }
 
-    if (start.length < 3 || start.length > 5) {
+    if (start.length < 3 || start.length > 6) {
       playErrorSound();
-      setFeedback({ status: 'error', message: "Only 3, 4, or 5-letter word mutations are supported by the active dictionary." });
+      setFeedback({ status: 'error', message: "Word mutations of 3, 4, 5, or 6 letters are supported by the dictionary." });
       return;
     }
 
-    // Verify words are in dictionary
-    const startValid = ALL_WORDS_SET.has(start.toLowerCase());
-    const targetValid = ALL_WORDS_SET.has(target.toLowerCase());
+    // Verify words are in dictionary or validate against Collins Dictionary
+    let startValid = ALL_WORDS_SET.has(start.toLowerCase());
+    let targetValid = ALL_WORDS_SET.has(target.toLowerCase());
+
+    if (!startValid) {
+      try {
+        const v = await verifyWordWithCollins(start.toLowerCase());
+        if (v.valid) {
+          ALL_WORDS_SET.add(start.toLowerCase());
+          addVerifiedCustomWord(start);
+          startValid = true;
+        }
+      } catch {
+        // proceed
+      }
+    }
+
+    if (!targetValid) {
+      try {
+        const v = await verifyWordWithCollins(target.toLowerCase());
+        if (v.valid) {
+          ALL_WORDS_SET.add(target.toLowerCase());
+          addVerifiedCustomWord(target);
+          targetValid = true;
+        }
+      } catch {
+        // proceed
+      }
+    }
 
     if (!startValid && !targetValid) {
       playErrorSound();
-      setFeedback({ status: 'error', message: `Neither "${start}" nor "${target}" are in the dictionary. You can still save this custom link, but we might not have paths for them!` });
+      setFeedback({ status: 'error', message: `Neither "${start}" nor "${target}" were verified by Collins Dictionary.` });
     } else if (!startValid) {
       playErrorSound();
-      setFeedback({ status: 'error', message: `"${start}" is not in our dictionary. Mutating might be difficult!` });
+      setFeedback({ status: 'error', message: `"${start}" is not recognized as a valid Collins word.` });
     } else if (!targetValid) {
       playErrorSound();
-      setFeedback({ status: 'error', message: `"${target}" is not in our dictionary.` });
+      setFeedback({ status: 'error', message: `"${target}" is not recognized as a valid Collins word.` });
     }
 
     // Solve path

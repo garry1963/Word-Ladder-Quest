@@ -20,7 +20,8 @@ import {
   VolumeX,
   Lightbulb,
   PlusCircle,
-  Check
+  Check,
+  CheckCircle2
 } from "lucide-react";
 import { Level, PlayerStats } from "../types";
 import { 
@@ -67,6 +68,7 @@ export default function GameBoard({
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [unverifiedCandidateWord, setUnverifiedCandidateWord] = useState<string | null>(null);
   const [isValidatingWord, setIsValidatingWord] = useState<boolean>(false);
+  const [verifiedWordNotice, setVerifiedWordNotice] = useState<string | null>(null);
 
   // Hint tracker state
   const [activeHint, setActiveHint] = useState<{
@@ -235,7 +237,10 @@ export default function GameBoard({
         if (validation.valid) {
           // Dynamically record to Set directory so the dictionary accepts it in active memory paths too
           ALL_WORDS_SET.add(lowercaseCandidate);
+          addVerifiedCustomWord(candidate);
           inDict = true;
+          setVerifiedWordNotice(`"${candidate}" validated by Collins English Dictionary!`);
+          setTimeout(() => setVerifiedWordNotice(null), 3500);
         }
       } catch (err) {
         console.warn("Unable to contact Collins validation API", err);
@@ -246,7 +251,7 @@ export default function GameBoard({
 
     if (!inDict) {
       setUnverifiedCandidateWord(candidate);
-      triggerError(`"${candidate}" is not present in our level wordlist.`);
+      triggerError(`"${candidate}" is not found in Collins English Dictionary or wordlist.`);
       return;
     }
 
@@ -858,6 +863,14 @@ export default function GameBoard({
               </div>
             )}
           </div>
+
+          {/* Verified word confirmation banner */}
+          {verifiedWordNotice && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center gap-2.5 text-xs font-bold shadow-xs animate-fade-in" id="collins-verified-notice">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-semibold">{verifiedWordNotice}</span>
+            </div>
+          )}
 
           {/* If there's an error displayed */}
           {errorMessage && (

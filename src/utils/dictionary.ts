@@ -506,5 +506,15 @@ export const OFFLINE_DICTIONARY: Record<string, string> = {
   "sleep": "A natural state of rest of body and mind.",
   "sheep": "A domesticated ruminant mammal with a thick woolly coat.",
   "sharp": "Having a thin edge or fine point, or showing quick intelligence.",
-  "shape": "The external form, outline, or silhouette of something."
+  "shape": "The external form, outline, or silhouette of something.",
+  "warm": "Of or at a fairly or comfortably high temperature.",
+  "ward": "A separate room or division in a hospital, or an administrative district.",
+  "cog": "A wheel or bar with a series of projections on its edge, or a subordinate person.",
+  "play": "Engage in activity for enjoyment and recreation rather than a serious purpose.",
+  "rain": "Moisture condensed from the atmosphere that falls visibly in separate drops.",
+  "rose": "A prickly bush or shrub that typically bears fragrant red, pink, or yellow flowers.",
+  "moon": "The natural satellite of the earth, visible by reflected light from the sun.",
+  "star": "A luminous point in the night sky that is a large, remote incandescent body.",
+  "time": "The indefinite continued progress of existence and events in the past, present, and future.",
+  "life": "The condition that distinguishes animals and plants from inorganic matter."
 };
