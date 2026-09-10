@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   BarChart2, 
   Award, 
@@ -41,6 +41,7 @@ import {
   removeVerifiedCustomWord, 
   isVerifiedCustomWord 
 } from "../utils/dictionary";
+import { lookupCollinsDefinition, CollinsDefinitionResult } from "../utils/collinsClient";
 import { isSoundEnabled, setSoundEnabled } from "../utils/audio";
 
 interface StatsDashboardProps {
@@ -104,6 +105,41 @@ export default function StatsDashboard({
   const searchNormalized = dictionarySearch.toLowerCase().trim();
   const foundDefinition = searchNormalized ? OFFLINE_DICTIONARY[searchNormalized] : null;
   const isWordInDict = searchNormalized ? ALL_WORDS_SET.has(searchNormalized) : false;
+
+  const [collinsDefResult, setCollinsDefResult] = useState<CollinsDefinitionResult | null>(null);
+  const [isSearchingCollins, setIsSearchingCollins] = useState<boolean>(false);
+
+  useEffect(() => {
+    const trimmed = dictionarySearch.trim();
+    if (!trimmed) {
+      setCollinsDefResult(null);
+      return;
+    }
+
+    let isCurrent = true;
+    const timer = setTimeout(async () => {
+      setIsSearchingCollins(true);
+      try {
+        const res = await lookupCollinsDefinition(trimmed);
+        if (isCurrent) {
+          setCollinsDefResult(res);
+        }
+      } catch {
+        if (isCurrent) {
+          setCollinsDefResult(null);
+        }
+      } finally {
+        if (isCurrent) {
+          setIsSearchingCollins(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [dictionarySearch]);
 
   // Total stars count
   const totalStars = Object.values(stats.completedLevels).reduce((acc, curr) => acc + curr.stars, 0);
@@ -207,9 +243,12 @@ export default function StatsDashboard({
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
               <BookMarked className="w-5 h-5 text-indigo-500" />
-              <h3 className="font-extrabold text-slate-800 text-base">Scribe Glossary</h3>
+              <div>
+                <h3 className="font-extrabold text-slate-800 text-base">Collins English Dictionary Glossary</h3>
+                <p className="text-[10px] text-indigo-600 font-mono font-bold">Official Dictionary API</p>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 font-semibold">Search words from the level dictionary to learn active definitions.</p>
+            <p className="text-xs text-slate-500 font-semibold">Search words to view verified definitions directly from the Collins English Dictionary API.</p>
 
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -224,8 +263,41 @@ export default function StatsDashboard({
             </div>
 
             {dictionarySearch && (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-2">
-                {foundDefinition ? (
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-2.5">
+                {isSearchingCollins ? (
+                  <div className="space-y-1.5 py-1">
+                    <div className="h-3 bg-slate-200 animate-pulse rounded-md w-full"></div>
+                    <div className="h-3 bg-slate-200 animate-pulse rounded-md w-4/5"></div>
+                  </div>
+                ) : collinsDefResult && !collinsDefResult.isOfflineFallback ? (
+                  <div className="space-y-2">
+                    <div className="flex items-baseline justify-between flex-wrap gap-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-bold font-mono text-indigo-700 uppercase tracking-widest text-sm">{dictionarySearch}</span>
+                        {collinsDefResult.phonetic && (
+                          <span className="text-[11px] text-slate-500 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">{collinsDefResult.phonetic}</span>
+                        )}
+                        {collinsDefResult.partOfSpeech && (
+                          <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 font-bold uppercase">{collinsDefResult.partOfSpeech}</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-200 font-bold">COLLINS VERIFIED</span>
+                    </div>
+                    <p className="text-slate-700 leading-relaxed italic bg-white p-3 rounded-xl border border-slate-200">{collinsDefResult.definition}</p>
+                    {collinsDefResult.entryUrl && (
+                      <div className="pt-1 flex justify-end">
+                        <a 
+                          href={collinsDefResult.entryUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-indigo-600 hover:text-indigo-800 hover:underline font-mono font-bold"
+                        >
+                          View Collins Dictionary Entry →
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ) : foundDefinition ? (
                   <div className="space-y-1.5">
                     <p className="font-bold font-mono text-indigo-650 uppercase tracking-widest text-sm flex items-center justify-between">
                       <span>{dictionarySearch}</span>
@@ -241,7 +313,7 @@ export default function StatsDashboard({
                 ) : (
                   <div className="space-y-2">
                     <p className="font-bold font-mono text-slate-401 uppercase">{dictionarySearch}</p>
-                    <p className="text-rose-500 leading-relaxed font-mono text-[11px] font-bold">🚫 Word not present in default dictionary.</p>
+                    <p className="text-rose-500 leading-relaxed font-mono text-[11px] font-bold">🚫 Word not found in Collins English Dictionary.</p>
                     {dictionarySearch.length >= 3 && dictionarySearch.length <= 6 && (
                       <button
                         onClick={() => handleAddCustomWord(dictionarySearch)}

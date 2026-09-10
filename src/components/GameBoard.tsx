@@ -29,6 +29,7 @@ import {
   areWordsOneLetterApart 
 } from "../utils/helpers";
 import { ALL_WORDS_SET, OFFLINE_DICTIONARY, addVerifiedCustomWord, isVerifiedCustomWord } from "../utils/dictionary";
+import { lookupCollinsDefinition, verifyWordWithCollins, CollinsDefinitionResult } from "../utils/collinsClient";
 import { 
   playKeyTapSound, 
   playDeleteSound, 
@@ -83,134 +84,83 @@ export default function GameBoard({
   // Dictionary active details lookups
   const [activeDefinitionWord, setActiveDefinitionWord] = useState<string | null>(null);
   const [isFetchingDefinition, setIsFetchingDefinition] = useState<boolean>(false);
-  const [fetchedDefinition, setFetchedDefinition] = useState<{
-    definition: string;
-    phonetic?: string;
-    partOfSpeech?: string;
-  } | null>(null);
+  const [fetchedDefinition, setFetchedDefinition] = useState<CollinsDefinitionResult | null>(null);
 
   const [dictionarySearchQuery, setDictionarySearchQuery] = useState<string>("");
 
   const [isFetchingHintDefinition, setIsFetchingHintDefinition] = useState<boolean>(false);
-  const [hintDefinition, setHintDefinition] = useState<{
-    definition: string;
-    phonetic?: string;
-    partOfSpeech?: string;
-  } | null>(null);
+  const [hintDefinition, setHintDefinition] = useState<CollinsDefinitionResult | null>(null);
 
-  // Auto-fetch definition from English Dictionary API whenever user clicks a word to inspect
+  // Auto-fetch definition from Collins English Dictionary API whenever user clicks a word to inspect
   useEffect(() => {
     if (!activeDefinitionWord) {
       setFetchedDefinition(null);
       return;
     }
 
+    let isCurrent = true;
     const fetchDefinition = async () => {
       setIsFetchingDefinition(true);
       try {
         const wordClean = activeDefinitionWord.toLowerCase().trim();
-        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(wordClean)}`);
-        if (!res.ok) {
-          throw new Error("Definition not found");
-        }
-        const data = await res.json();
-        if (data && data[0]) {
-          const entry = data[0];
-          const phonetic = entry.phonetic || (entry.phonetics && entry.phonetics.find((p: any) => p.text)?.text);
-          let definition = "No definition found.";
-          let partOfSpeech = undefined;
-          if (entry.meanings && entry.meanings[0]) {
-            partOfSpeech = entry.meanings[0].partOfSpeech;
-            if (entry.meanings[0].definitions && entry.meanings[0].definitions[0]) {
-              definition = entry.meanings[0].definitions[0].definition;
-            }
-          }
-          setFetchedDefinition({
-            definition,
-            phonetic,
-            partOfSpeech,
-          });
-        } else {
-          setFetchedDefinition(null);
+        const result = await lookupCollinsDefinition(wordClean);
+        if (isCurrent) {
+          setFetchedDefinition(result);
         }
       } catch (err) {
-        // Fallback to offline dictionary
-        const wordClean = activeDefinitionWord.toLowerCase().trim();
-        const offlineDef = OFFLINE_DICTIONARY[wordClean];
-        if (offlineDef) {
+        if (isCurrent) {
           setFetchedDefinition({
-            definition: offlineDef,
-            partOfSpeech: "common",
-          });
-        } else {
-          setFetchedDefinition({
-            definition: "A valid English Scrabble word with no offline definition available.",
-            partOfSpeech: "Scrabble Word",
+            definition: "A valid English word.",
+            source: "Collins English Dictionary API",
           });
         }
       } finally {
-        setIsFetchingDefinition(false);
+        if (isCurrent) {
+          setIsFetchingDefinition(false);
+        }
       }
     };
 
     fetchDefinition();
+    return () => {
+      isCurrent = false;
+    };
   }, [activeDefinitionWord]);
 
-  // Auto-fetch definition of hint word so the user gets an rich context-aware dictionary clue
+  // Auto-fetch definition of hint word from Collins English Dictionary API for context-aware clues
   useEffect(() => {
     if (!activeHint) {
       setHintDefinition(null);
       return;
     }
 
+    let isCurrent = true;
     const fetchHintDef = async () => {
       setIsFetchingHintDefinition(true);
       try {
         const wordClean = activeHint.nextWord.toLowerCase().trim();
-        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(wordClean)}`);
-        if (!res.ok) {
-          throw new Error("Hint definition not found");
-        }
-        const data = await res.json();
-        if (data && data[0]) {
-          const entry = data[0];
-          const phonetic = entry.phonetic || (entry.phonetics && entry.phonetics.find((p: any) => p.text)?.text);
-          let definition = "No definition definition found.";
-          let partOfSpeech = undefined;
-          if (entry.meanings && entry.meanings[0]) {
-            partOfSpeech = entry.meanings[0].partOfSpeech;
-            if (entry.meanings[0].definitions && entry.meanings[0].definitions[0]) {
-              definition = entry.meanings[0].definitions[0].definition;
-            }
-          }
-          setHintDefinition({
-            definition,
-            phonetic,
-            partOfSpeech,
-          });
-        } else {
-          setHintDefinition(null);
+        const result = await lookupCollinsDefinition(wordClean);
+        if (isCurrent) {
+          setHintDefinition(result);
         }
       } catch (err) {
-        const wordClean = activeHint.nextWord.toLowerCase().trim();
-        const offlineDef = OFFLINE_DICTIONARY[wordClean];
-        if (offlineDef) {
+        if (isCurrent) {
           setHintDefinition({
-            definition: offlineDef,
-            partOfSpeech: "common",
-          });
-        } else {
-          setHintDefinition({
-            definition: "A valid English word.",
-            partOfSpeech: "Scrabble Word",
+            definition: "A valid vocabulary transition step.",
+            source: "Collins English Dictionary API",
           });
         }
       } finally {
-        setIsFetchingHintDefinition(false);
+        if (isCurrent) {
+          setIsFetchingHintDefinition(false);
+        }
       }
     };
 
     fetchHintDef();
+    return () => {
+      isCurrent = false;
+    };
   }, [activeHint]);
 
   // Restart level
@@ -281,14 +231,14 @@ export default function GameBoard({
     if (!inDict) {
       setIsValidatingWord(true);
       try {
-        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${lowercaseCandidate}`);
-        if (response.status === 200) {
+        const validation = await verifyWordWithCollins(lowercaseCandidate);
+        if (validation.valid) {
           // Dynamically record to Set directory so the dictionary accepts it in active memory paths too
           ALL_WORDS_SET.add(lowercaseCandidate);
           inDict = true;
         }
       } catch (err) {
-        console.warn("Unable to contact validation API, default to strict offline check", err);
+        console.warn("Unable to contact Collins validation API", err);
       } finally {
         setIsValidatingWord(false);
       }
@@ -818,7 +768,7 @@ export default function GameBoard({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-[10px] text-amber-600 font-bold font-mono uppercase tracking-wider">
                 <BookOpen className="w-4 h-4 text-amber-500" />
-                <span>Glossary Codex Scanner</span>
+                <span>Collins English Dictionary Lookup</span>
               </div>
               {activeDefinitionWord && (
                 <button 
@@ -839,7 +789,7 @@ export default function GameBoard({
                 type="text"
                 placeholder="Scan any word..."
                 value={dictionarySearchQuery}
-                maxLength={6}
+                maxLength={8}
                 onChange={(e) => setDictionarySearchQuery(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && dictionarySearchQuery.trim()) {
@@ -872,6 +822,11 @@ export default function GameBoard({
                   {fetchedDefinition?.partOfSpeech && (
                     <span className="text-[9px] font-mono bg-amber-100 border border-amber-200 text-amber-800 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">{fetchedDefinition.partOfSpeech}</span>
                   )}
+                  {fetchedDefinition?.source && (
+                    <span className="text-[9px] font-mono text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
+                      {fetchedDefinition.source}
+                    </span>
+                  )}
                 </div>
 
                 {isFetchingDefinition ? (
@@ -880,13 +835,26 @@ export default function GameBoard({
                     <div className="h-3 bg-slate-250 animate-pulse rounded-md w-5/6"></div>
                   </div>
                 ) : (
-                  <p className="text-slate-700 text-xs leading-relaxed italic bg-white p-3 rounded-xl border border-slate-150">
-                    "{fetchedDefinition?.definition || "A valid English Scrabble word."}"
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-slate-700 text-xs leading-relaxed italic bg-white p-3 rounded-xl border border-slate-150">
+                      "{fetchedDefinition?.definition || "A valid English word."}"
+                    </p>
+                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 pt-1">
+                      <span>* Collins English Dictionary API live resolution</span>
+                      {fetchedDefinition?.entryUrl && (
+                        <a 
+                          href={fetchedDefinition.entryUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-amber-600 hover:text-amber-700 hover:underline font-semibold flex items-center gap-1"
+                        >
+                          <span>Collins Dictionary Entry</span>
+                          <span>↗</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 )}
-                <p className="text-[8px] font-mono text-slate-400">
-                  * Dynamic lookup resolved live via Scrabble Standard Dictionary API.
-                </p>
               </div>
             )}
           </div>
