@@ -5,7 +5,9 @@ import {
   getCollinsApiKey, 
   parseCollinsEntryHtml, 
   getCollinsDefinition, 
-  validateCollinsWord 
+  validateCollinsWord,
+  detectExcludedMetadata,
+  generateValidatedLadder
 } from "./collinsService";
 
 interface TestResult {
@@ -199,6 +201,50 @@ async function runTests() {
     "Collins Validation", 
     "validateCollinsWord rejects non-existent word ('xyzxyz')", 
     invalidWordCheck.valid === false
+  );
+
+  // Test Exclusion Criteria: slang, colloquial, archaic, obsolete
+  const slangCheck = detectExcludedMetadata({ labels: ["slang"] });
+  assert(
+    "Exclusion Filtering",
+    "detectExcludedMetadata detects 'slang' in metadata array",
+    slangCheck.isExcluded === true && slangCheck.tag === "slang"
+  );
+
+  const colloquialCheck = detectExcludedMetadata({ register: "colloquial" });
+  assert(
+    "Exclusion Filtering",
+    "detectExcludedMetadata detects 'colloquial' in register field",
+    colloquialCheck.isExcluded === true && colloquialCheck.tag === "colloquial"
+  );
+
+  const archaicCheck = detectExcludedMetadata({}, '<span class="lbl">archaic</span> to depart');
+  assert(
+    "Exclusion Filtering",
+    "detectExcludedMetadata detects 'archaic' in HTML class",
+    archaicCheck.isExcluded === true && archaicCheck.tag === "archaic"
+  );
+
+  const obsoleteCheck = detectExcludedMetadata({}, '<p>(obsolete) an ancient weapon</p>');
+  assert(
+    "Exclusion Filtering",
+    "detectExcludedMetadata detects 'obsolete' in bracketed text",
+    obsoleteCheck.isExcluded === true && obsoleteCheck.tag === "obsolete"
+  );
+
+  const cleanCheck = detectExcludedMetadata({ registers: ["standard"] }, '<span class="lbl">standard</span> normal text');
+  assert(
+    "Exclusion Filtering",
+    "detectExcludedMetadata allows clean non-excluded words",
+    cleanCheck.isExcluded === false
+  );
+
+  // Test Ladder Generation with real-time validation
+  const testLadder = await generateValidatedLadder(4, 4, 6, { timeoutMs: 2000, maxAttempts: 5 });
+  assert(
+    "Ladder Generation",
+    "generateValidatedLadder generates valid ladder or verified fallback",
+    testLadder !== null && testLadder.path.length >= 4 && testLadder.start.length === 4
   );
 
   // Verify built-in offline vocabulary safety net

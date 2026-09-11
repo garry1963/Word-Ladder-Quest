@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { getCollinsDefinition, validateCollinsWord, getCollinsApiKey } from './src/server/collinsService';
+import { getCollinsDefinition, validateCollinsWord, generateValidatedLadder, getCollinsApiKey } from './src/server/collinsService';
 
 async function startServer() {
   const app = express();
@@ -12,7 +12,7 @@ async function startServer() {
 
   // Prevent caching headers for all dictionary endpoints per Collins API terms
   const setNoCache = (res: express.Response) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   };
@@ -63,6 +63,22 @@ async function startServer() {
   };
   app.get('/api/validate', handleValidate);
   app.get('/api/dictionary/validate', handleValidate);
+
+  // Collins Validated Solvable Ladder Generation
+  const handleLadderGenerate = async (req: express.Request, res: express.Response) => {
+    setNoCache(res);
+    const length = parseInt((req.query.length as string) || req.body?.length, 10) || 4;
+    const minSteps = parseInt((req.query.minSteps as string) || req.body?.minSteps, 10) || 4;
+    const maxSteps = parseInt((req.query.maxSteps as string) || req.body?.maxSteps, 10) || 7;
+    const ladder = await generateValidatedLadder(length, minSteps, maxSteps);
+    if (!ladder) {
+      res.status(500).json({ error: 'Unable to generate validated Collins ladder matching constraints.' });
+      return;
+    }
+    res.status(200).json(ladder);
+  };
+  app.get('/api/ladder/generate', handleLadderGenerate);
+  app.get('/api/dictionary/ladder/generate', handleLadderGenerate);
 
   // Vite middleware for development vs static build for production
   if (process.env.NODE_ENV !== 'production') {

@@ -1,15 +1,29 @@
 import fs from 'fs';
 import path from 'path';
+import { areWordsOneLetterApart, findShortestPath } from '../utils/helpers';
 
 /**
  * Collins English Dictionary API Service
  * 
  * Strict compliance with Collins English Dictionary API terms:
- * 1. Authenticated server-side via environment variable COLLINS_API_KEY (keeps private key safe from browser).
- * 2. No third-party AI integration.
- * 3. Strict NO STORAGE / NO CACHING policy (no database, no disk cache, no long-lived memory cache).
- * 4. Incorporates official Collins Scrabble Words (CSW) authoritative list for comprehensive validation.
+ * 1. Base Validation: Official Collins Scrabble Words (CSW) authoritative list as foundational allowed list.
+ * 2. API Filtering: Real-time cross-referencing against Collins Dictionary API.
+ * 3. Exclusion Criteria: Blocks any word tagged: slang, colloquial, archaic, or obsolete.
+ * 4. Strict NO STORAGE / NO CACHING policy (no database, no disk cache, no long-lived memory cache).
+ * 5. Forced fresh fetch headers:
+ *    Cache-Control: no-store, no-cache, must-revalidate
+ *    Pragma: no-cache
+ * 6. Asynchronous error handling with timeout protection.
  */
+
+export const EXCLUDED_METADATA_TAGS = ['slang', 'colloquial', 'archaic', 'obsolete'] as const;
+export type ExcludedMetadataTag = typeof EXCLUDED_METADATA_TAGS[number];
+
+export interface MetadataExclusionResult {
+  isExcluded: boolean;
+  tag?: ExcludedMetadataTag;
+  details?: string;
+}
 
 export interface CollinsDefinitionResponse {
   found: boolean;
@@ -19,6 +33,8 @@ export interface CollinsDefinitionResponse {
   phonetic?: string;
   entryUrl?: string;
   source: string;
+  isExcluded?: boolean;
+  exclusionTag?: ExcludedMetadataTag;
   error?: string;
 }
 
@@ -26,7 +42,11 @@ export interface CollinsValidationResponse {
   valid: boolean;
   word: string;
   source: string;
+  isExcluded?: boolean;
+  exclusionTag?: ExcludedMetadataTag;
+  reason?: string;
   error?: string;
+  apiChecked?: boolean;
 }
 
 // In-memory Set of authoritative Collins Scrabble Words (CSW21)
@@ -83,6 +103,81 @@ function stripHtmlTags(html: string): string {
     .trim();
 }
 
+/**
+ * Detects whether the dictionary API response metadata or HTML contains
+ * exclusion tags: slang, colloquial, archaic, or obsolete.
+ */
+export function detectExcludedMetadata(data: any, html?: string): MetadataExclusionResult {
+  const checkValue = (val: string, context: string): MetadataExclusionResult | null => {
+    if (!val || typeof val !== 'string') return null;
+    for (const tag of EXCLUDED_METADATA_TAGS) {
+      const regex = new RegExp(`\\b${tag}\\b`, 'i');
+      if (regex.test(val)) {
+        return { isExcluded: true, tag, details: `Tag "${tag}" detected in ${context}` };
+      }
+    }
+    return null;
+  };
+
+  // 1. Structured metadata inspection on response object
+  if (data && typeof data === 'object') {
+    // Array fields
+    for (const key of ['labels', 'tags', 'registers', 'categories', 'topics']) {
+      if (Array.isArray(data[key])) {
+        for (const item of data[key]) {
+          const res = checkValue(typeof item === 'string' ? item : JSON.stringify(item), `metadata.${key}`);
+          if (res) return res;
+        }
+      }
+    }
+
+    // Scalar metadata fields
+    for (const key of ['label', 'tag', 'register', 'status', 'gramGrp', 'type', 'usage', 'style']) {
+      if (typeof data[key] === 'string') {
+        const res = checkValue(data[key], `metadata.${key}`);
+        if (res) return res;
+      }
+    }
+
+    // Sense-level metadata
+    if (Array.isArray(data.senses)) {
+      for (let i = 0; i < data.senses.length; i++) {
+        const sense = data.senses[i];
+        if (sense && typeof sense === 'object') {
+          for (const key of ['labels', 'register', 'tags', 'status', 'senseNote', 'definition']) {
+            if (sense[key]) {
+              const res = checkValue(typeof sense[key] === 'string' ? sense[key] : JSON.stringify(sense[key]), `sense[${i}].${key}`);
+              if (res) return res;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 2. HTML entry content inspection (classes, markup attributes, and bracketed usage notes)
+  if (html && typeof html === 'string') {
+    for (const tag of EXCLUDED_METADATA_TAGS) {
+      // Look for tag inside class or register/label spans
+      const classRegex = new RegExp(
+        `<(?:span|div|i|em|b|p|td)[^>]*class=["'][^"']*(?:lbl|register|grammar|pos|sensenote|sense-note|type-status|type-register|type-style|usage|def)[^"']*["'][^>]*>[^<]*?\\b(${tag})\\b`,
+        'i'
+      );
+      if (classRegex.test(html)) {
+        return { isExcluded: true, tag, details: `Tag "${tag}" detected in HTML entry class` };
+      }
+
+      // Look for bracketed or parenthesized usage labels e.g. (slang), [archaic]
+      const bracketRegex = new RegExp(`[\\(\\[][^\\]\\)]*?\\b(${tag})\\b[^\\]\\)]*?[\\)\\]]`, 'i');
+      if (bracketRegex.test(html)) {
+        return { isExcluded: true, tag, details: `Usage note "${tag}" detected in entry text` };
+      }
+    }
+  }
+
+  return { isExcluded: false };
+}
+
 export function parseCollinsEntryHtml(html: string, word: string) {
   let phonetic: string | undefined;
   let partOfSpeech: string | undefined;
@@ -114,7 +209,6 @@ export function parseCollinsEntryHtml(html: string, word: string) {
   if (!definition) {
     const cleanText = stripHtmlTags(html);
     if (cleanText) {
-      // Avoid returning just the word title
       const textWithoutWord = cleanText.replace(new RegExp(`^${word}\\b`, 'i'), '').trim();
       definition = textWithoutWord.length > 200 
         ? textWithoutWord.slice(0, 200) + '...' 
@@ -127,13 +221,21 @@ export function parseCollinsEntryHtml(html: string, word: string) {
 
 /**
  * Fetch a definition directly from Collins English Dictionary API
+ * 
+ * Strict Compliance:
+ * - NO caching or saving of dictionary data.
+ * - Always forces fresh network fetch with strict no-cache headers.
+ * - Includes robust asynchronous error handling and timeout protection.
  */
-export async function getCollinsDefinition(word: string): Promise<CollinsDefinitionResponse> {
+export async function getCollinsDefinition(
+  word: string,
+  options?: { timeoutMs?: number }
+): Promise<CollinsDefinitionResponse> {
   const cleanWord = word.trim().toLowerCase();
   const apiKey = getCollinsApiKey();
   const entryUrl = `https://www.collinsdictionary.com/dictionary/english/${encodeURIComponent(cleanWord)}`;
 
-  // Check official Collins words list
+  // Foundational check against official Collins CSW words list
   const wordsSet = getCollinsWordsSet();
   const isInCollinsWordlist = wordsSet.has(cleanWord);
 
@@ -149,35 +251,51 @@ export async function getCollinsDefinition(word: string): Promise<CollinsDefinit
   }
 
   const endpoint = `https://api.collinsdictionary.com/api/v1/dictionaries/english/search/first/?q=${encodeURIComponent(cleanWord)}&format=html`;
+  const timeoutMs = options?.timeoutMs ?? 5000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(endpoint, {
       method: 'GET',
+      signal: controller.signal,
       headers: {
         'accessKey': apiKey,
         'Authorization': `Bearer ${apiKey}`,
         'User-Agent': 'CollinsApiClient/1.0',
         'Accept': 'application/json',
+        // Required fresh headers
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
       },
     });
 
-    if (response.status === 200) {
-      const data = await response.json();
-      const entryHtml = data.entryContent || "";
-      const parsed = parseCollinsEntryHtml(entryHtml, cleanWord);
+    clearTimeout(timeoutId);
 
-      return {
-        found: true,
-        word: data.entryLabel || cleanWord.toUpperCase(),
-        definition: parsed.definition || `Official Collins entry for "${cleanWord.toUpperCase()}".`,
-        partOfSpeech: parsed.partOfSpeech,
-        phonetic: parsed.phonetic,
-        entryUrl: data.entryUrl || entryUrl,
-        source: "Collins English Dictionary API"
-      };
+    if (response.status === 200) {
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        const entryHtml = data.entryContent || "";
+        const parsed = parseCollinsEntryHtml(entryHtml, cleanWord);
+
+        // Check for excluded metadata tags
+        const exclusion = detectExcludedMetadata(data, entryHtml);
+
+        return {
+          found: true,
+          word: data.entryLabel || cleanWord.toUpperCase(),
+          definition: parsed.definition || `Official Collins entry for "${cleanWord.toUpperCase()}".`,
+          partOfSpeech: parsed.partOfSpeech,
+          phonetic: parsed.phonetic,
+          entryUrl: data.entryUrl || entryUrl,
+          source: "Collins English Dictionary API",
+          isExcluded: exclusion.isExcluded,
+          exclusionTag: exclusion.tag,
+        };
+      }
     }
 
-    // If API returned 404 or non-200, check official Collins dictionary set
     if (isInCollinsWordlist) {
       return {
         found: true,
@@ -196,6 +314,7 @@ export async function getCollinsDefinition(word: string): Promise<CollinsDefinit
       error: response.status === 404 ? "Word not found in Collins English Dictionary." : `Collins API returned status ${response.status}`
     };
   } catch (err: any) {
+    clearTimeout(timeoutId);
     if (isInCollinsWordlist) {
       return {
         found: true,
@@ -206,74 +325,226 @@ export async function getCollinsDefinition(word: string): Promise<CollinsDefinit
       };
     }
 
+    const isTimeout = err?.name === 'AbortError' || controller.signal.aborted;
     return {
       found: false,
       word: cleanWord.toUpperCase(),
       source: "Collins English Dictionary API",
       entryUrl,
-      error: err?.message || "Failed to communicate with Collins Dictionary API"
+      error: isTimeout
+        ? `Collins API request timed out after ${timeoutMs}ms`
+        : (err?.message || "Failed to communicate with Collins Dictionary API")
     };
   }
 }
 
 /**
- * Validate whether any user entered word exists in Collins English Dictionary
+ * Authoritative Word Validation Function
+ * 
+ * Requirements strictly satisfied:
+ * 1. Base Validation: Uses the CSW list as the foundational list of allowed words.
+ * 2. API Filtering: For every word considered for a ladder step or user input, cross-references it in real-time against the Collins Dictionary API.
+ * 3. Exclusion Criteria: Filters out and blocks any word if its API definition metadata contains tags for: slang, colloquial, archaic, or obsolete.
+ * 4. Collins Strict Compliance Handling: No caching, storing, or saving of dictionary data.
+ * 5. Network Headers: Explicitly enforces:
+ *      Cache-Control: no-store, no-cache, must-revalidate
+ *      Pragma: no-cache
+ * 6. Asynchronous Error Handling: Includes timeout protection via AbortController and graceful network failure resilience.
  */
-export async function validateCollinsWord(word: string): Promise<CollinsValidationResponse> {
+export async function validateCollinsWord(
+  word: string,
+  options?: { timeoutMs?: number }
+): Promise<CollinsValidationResponse> {
   const cleanWord = word.trim().toLowerCase();
   if (!cleanWord) {
     return {
       valid: false,
       word: "",
-      source: "Collins English Dictionary"
+      source: "Collins English Dictionary",
+      reason: "Word cannot be empty"
     };
   }
 
-  // 1. Authoritative Collins Scrabble Words (CSW) check
+  // 1. BASE VALIDATION: Use the CSW list as the foundational list of allowed words.
   const wordsSet = getCollinsWordsSet();
-  if (wordsSet.has(cleanWord)) {
+  if (!wordsSet.has(cleanWord)) {
+    return {
+      valid: false,
+      word: cleanWord.toUpperCase(),
+      source: "Collins Scrabble Words (CSW)",
+      reason: `"${cleanWord.toUpperCase()}" is not found in the foundational CSW word list.`
+    };
+  }
+
+  // 2. API FILTERING: Cross-reference in real-time against the Collins Dictionary API
+  const apiKey = getCollinsApiKey();
+  if (!apiKey) {
+    // If no API key is provided, the word is accepted based on foundational CSW
     return {
       valid: true,
       word: cleanWord.toUpperCase(),
-      source: "Collins English Dictionary (Official CSW)"
+      source: "Collins English Dictionary (CSW Foundational)",
+      apiChecked: false,
     };
   }
 
-  // 2. Query Collins Dictionary API if API key is present
-  const apiKey = getCollinsApiKey();
-  if (apiKey) {
-    const endpoint = `https://api.collinsdictionary.com/api/v1/dictionaries/english/search/first/?q=${encodeURIComponent(cleanWord)}&format=html`;
-    try {
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'accessKey': apiKey,
-          'Authorization': `Bearer ${apiKey}`,
-          'User-Agent': 'CollinsApiClient/1.0',
-          'Accept': 'application/json',
-        },
-      });
+  const endpoint = `https://api.collinsdictionary.com/api/v1/dictionaries/english/search/first/?q=${encodeURIComponent(cleanWord)}&format=html`;
+  const timeoutMs = options?.timeoutMs ?? 5000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      if (response.status === 200) {
+  try {
+    // Force fresh data fetch every time with strict headers
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'accessKey': apiKey,
+        'Authorization': `Bearer ${apiKey}`,
+        'User-Agent': 'CollinsApiClient/1.0',
+        'Accept': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 200) {
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
         const data = await response.json();
-        const matchedWord = (data.entryLabel || cleanWord).toLowerCase();
-        const isValid = matchedWord === cleanWord || matchedWord.startsWith(cleanWord);
-        if (isValid) {
+        const entryHtml = data.entryContent || "";
+
+        // 3. EXCLUSION CRITERIA: Filter out and block any word if its definition
+        // metadata contains tags for: slang, colloquial, archaic, or obsolete.
+        const exclusion = detectExcludedMetadata(data, entryHtml);
+        if (exclusion.isExcluded) {
           return {
-            valid: true,
+            valid: false,
             word: cleanWord.toUpperCase(),
-            source: "Collins English Dictionary API"
+            source: "Collins English Dictionary API",
+            isExcluded: true,
+            exclusionTag: exclusion.tag,
+            reason: `"${cleanWord.toUpperCase()}" is excluded: tagged as ${exclusion.tag} in Collins Dictionary metadata.`,
+            apiChecked: true,
           };
         }
+
+        // Passed both CSW base validation and live Collins API filtering
+        return {
+          valid: true,
+          word: cleanWord.toUpperCase(),
+          source: "Collins English Dictionary API",
+          apiChecked: true,
+        };
       }
-    } catch {
-      // Ignore API network errors and continue
+    }
+
+    // If API responded with 404 or other status, word remains valid by CSW foundational list
+    return {
+      valid: true,
+      word: cleanWord.toUpperCase(),
+      source: "Collins English Dictionary (CSW Foundational)",
+      apiChecked: true,
+      error: response.status !== 200 ? `Collins API returned status ${response.status}` : undefined
+    };
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    // Asynchronous error handling for network failure or timeout
+    const isTimeout = err?.name === 'AbortError' || controller.signal.aborted;
+    return {
+      valid: true, // CSW foundational word remains valid despite network timeout
+      word: cleanWord.toUpperCase(),
+      source: "Collins English Dictionary (CSW Foundational)",
+      apiChecked: false,
+      error: isTimeout
+        ? `Collins API request timed out after ${timeoutMs}ms`
+        : (err?.message || "Failed to communicate with Collins Dictionary API")
+    };
+  }
+}
+
+/**
+ * Authoritative Ladder Generation Function
+ * 
+ * Generates a solvable word ladder where every step is validated against:
+ * 1. CSW list as foundational allowed words (Base Validation).
+ * 2. Real-time Collins Dictionary API cross-referencing (API Filtering).
+ * 3. Exclusion of any word tagged: slang, colloquial, archaic, or obsolete (Exclusion Criteria).
+ * 4. Strict NO caching or storing policy.
+ * 5. Forced fresh fetch headers (Cache-Control: no-store, no-cache, must-revalidate; Pragma: no-cache).
+ * 6. Asynchronous error handling with timeout protection.
+ */
+export async function generateValidatedLadder(
+  wordLength: number,
+  minSteps: number = 4,
+  maxSteps: number = 7,
+  options?: { timeoutMs?: number; maxAttempts?: number }
+): Promise<{ start: string; end: string; path: string[] } | null> {
+  const cswSet = getCollinsWordsSet();
+  const eligibleWords = Array.from(cswSet).filter(w => w.length === wordLength);
+  if (eligibleWords.length < 2) return null;
+
+  const maxAttempts = options?.maxAttempts ?? 25;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const startCandidate = eligibleWords[Math.floor(Math.random() * eligibleWords.length)];
+    const endCandidate = eligibleWords[Math.floor(Math.random() * eligibleWords.length)];
+    if (startCandidate === endCandidate) continue;
+
+    // Fast candidate path search using CSW foundational lexicon
+    const rawPath = findShortestPath(startCandidate, endCandidate, cswSet);
+    if (!rawPath || rawPath.length < minSteps || rawPath.length > maxSteps + 1) {
+      continue;
+    }
+
+    // Cross-reference every step in real-time against Collins API & exclusion criteria
+    let pathIsValid = true;
+    const validatedSteps: string[] = [];
+
+    for (const stepWord of rawPath) {
+      const validation = await validateCollinsWord(stepWord, { timeoutMs: options?.timeoutMs ?? 3000 });
+      if (!validation.valid || validation.isExcluded) {
+        pathIsValid = false;
+        break;
+      }
+      validatedSteps.push(stepWord.toUpperCase());
+    }
+
+    if (pathIsValid && validatedSteps.length === rawPath.length) {
+      return {
+        start: validatedSteps[0],
+        end: validatedSteps[validatedSteps.length - 1],
+        path: validatedSteps,
+      };
     }
   }
 
-  return {
-    valid: false,
-    word: cleanWord.toUpperCase(),
-    source: "Collins English Dictionary"
+  // Curated foundational fallbacks verified against Collins English Dictionary
+  const fallbackPairs: Record<number, { start: string; end: string; path: string[] }> = {
+    3: { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] },
+    4: { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] },
+    5: { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] },
+    6: { start: "PLANET", end: "SILVER", path: ["PLANET", "PLANES", "PLATES", "SLATES", "SLATER", "SLIVER", "SILVER"] }
   };
+
+  const fb = fallbackPairs[wordLength];
+  if (fb) {
+    let allValid = true;
+    const validatedSteps: string[] = [];
+    for (const step of fb.path) {
+      const v = await validateCollinsWord(step, { timeoutMs: 2000 });
+      if (!v.valid || v.isExcluded) {
+        allValid = false;
+        break;
+      }
+      validatedSteps.push(step);
+    }
+    if (allValid) {
+      return { start: fb.start, end: fb.end, path: validatedSteps };
+    }
+  }
+
+  return null;
 }

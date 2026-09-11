@@ -228,25 +228,36 @@ export default function GameBoard({
 
     // Check if legitimate word
     const lowercaseCandidate = candidate.toLowerCase();
-    let inDict = ALL_WORDS_SET.has(lowercaseCandidate);
+    setIsValidatingWord(true);
+    let inDict = false;
 
-    if (!inDict) {
-      setIsValidatingWord(true);
-      try {
-        const validation = await verifyWordWithCollins(lowercaseCandidate);
-        if (validation.valid) {
-          // Dynamically record to Set directory so the dictionary accepts it in active memory paths too
-          ALL_WORDS_SET.add(lowercaseCandidate);
-          addVerifiedCustomWord(candidate);
-          inDict = true;
-          setVerifiedWordNotice(`"${candidate}" validated by Collins English Dictionary!`);
-          setTimeout(() => setVerifiedWordNotice(null), 3500);
-        }
-      } catch (err) {
-        console.warn("Unable to contact Collins validation API", err);
-      } finally {
+    try {
+      const validation = await verifyWordWithCollins(lowercaseCandidate);
+      if (validation.isExcluded) {
         setIsValidatingWord(false);
+        setUnverifiedCandidateWord(candidate);
+        triggerError(validation.reason || `"${candidate}" is excluded: tagged as ${validation.exclusionTag} in Collins Dictionary.`);
+        return;
       }
+
+      if (validation.valid) {
+        ALL_WORDS_SET.add(lowercaseCandidate);
+        addVerifiedCustomWord(candidate);
+        inDict = true;
+        setVerifiedWordNotice(`"${candidate}" validated by Collins English Dictionary!`);
+        setTimeout(() => setVerifiedWordNotice(null), 3500);
+      } else {
+        setIsValidatingWord(false);
+        setUnverifiedCandidateWord(candidate);
+        triggerError(validation.reason || `"${candidate}" is not recognized in the Collins Dictionary.`);
+        return;
+      }
+    } catch (err) {
+      console.warn("Unable to contact Collins validation API", err);
+      // Fallback to offline set
+      inDict = ALL_WORDS_SET.has(lowercaseCandidate);
+    } finally {
+      setIsValidatingWord(false);
     }
 
     if (!inDict) {
