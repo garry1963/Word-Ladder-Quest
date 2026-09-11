@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { areWordsOneLetterApart, findShortestPath } from '../utils/helpers';
+import { disqualifyWordForPuzzles } from '../utils/dictionary';
 
 /**
  * Collins English Dictionary API Service
@@ -51,6 +52,57 @@ export interface CollinsValidationResponse {
 
 // In-memory Set of authoritative Collins Scrabble Words (CSW21)
 let collinsWordsSet: Set<string> | null = null;
+
+// Persistent store for disqualified words (flagged as invalid by Collins validation)
+const DISQUALIFIED_FILE_PATH = path.join(process.cwd(), 'src/server/data/disqualified_words.json');
+let disqualifiedWordsSet: Set<string> | null = null;
+
+export function getDisqualifiedWordsSet(): Set<string> {
+  if (!disqualifiedWordsSet) {
+    disqualifiedWordsSet = new Set<string>();
+    try {
+      if (fs.existsSync(DISQUALIFIED_FILE_PATH)) {
+        const raw = fs.readFileSync(DISQUALIFIED_FILE_PATH, 'utf8');
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          for (const w of list) {
+            if (typeof w === 'string') disqualifiedWordsSet.add(w.toLowerCase().trim());
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Unable to load disqualified words file:', err);
+    }
+  }
+  return disqualifiedWordsSet;
+}
+
+/**
+ * Flag and disqualify a word so it will NEVER be used in the current puzzle
+ * generation or any future puzzle generations.
+ */
+export function disqualifyWord(word: string): void {
+  const clean = word.toLowerCase().trim();
+  if (!clean) return;
+  const set = getDisqualifiedWordsSet();
+  if (!set.has(clean)) {
+    set.add(clean);
+    try {
+      const dir = path.dirname(DISQUALIFIED_FILE_PATH);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(DISQUALIFIED_FILE_PATH, JSON.stringify(Array.from(set)), 'utf8');
+    } catch (err) {
+      console.warn('Unable to persist disqualified word to disk:', err);
+    }
+  }
+  disqualifyWordForPuzzles(clean);
+}
+
+export function isWordDisqualified(word: string): boolean {
+  return getDisqualifiedWordsSet().has(word.toLowerCase().trim());
+}
 
 export function getCollinsWordsSet(): Set<string> {
   if (!collinsWordsSet) {
@@ -365,9 +417,23 @@ export async function validateCollinsWord(
     };
   }
 
+  // Check if word was previously disqualified from puzzle generation
+  if (isWordDisqualified(cleanWord)) {
+    return {
+      valid: false,
+      word: cleanWord.toUpperCase(),
+      source: "Collins English Dictionary (Disqualified)",
+      isExcluded: true,
+      reason: `"${cleanWord.toUpperCase()}" was previously flagged as not valid and disqualified from puzzle generation.`,
+      apiChecked: false
+    };
+  }
+
   // 1. BASE VALIDATION: Use the CSW list as the foundational list of allowed words.
   const wordsSet = getCollinsWordsSet();
   if (!wordsSet.has(cleanWord)) {
+    // Flagged as not valid: permanently disqualify from puzzle generation
+    disqualifyWord(cleanWord);
     return {
       valid: false,
       word: cleanWord.toUpperCase(),
@@ -420,6 +486,8 @@ export async function validateCollinsWord(
         // metadata contains tags for: slang, colloquial, archaic, or obsolete.
         const exclusion = detectExcludedMetadata(data, entryHtml);
         if (exclusion.isExcluded) {
+          // Flagged as excluded: permanently disqualify from puzzle generation
+          disqualifyWord(cleanWord);
           return {
             valid: false,
             word: cleanWord.toUpperCase(),
@@ -474,7 +542,9 @@ export async function validateCollinsWord(
  * 3. Exclusion of any word tagged: slang, colloquial, archaic, or obsolete (Exclusion Criteria).
  * 4. Strict NO caching or storing policy.
  * 5. Forced fresh fetch headers (Cache-Control: no-store, no-cache, must-revalidate; Pragma: no-cache).
- * 6. Asynchronous error handling with timeout protection.
+ * 6. Disqualification Enforcement: If any selected word is flagged as not valid,
+ *    it is immediately disqualified and blocked from this and all future puzzle generations.
+ * 7. Asynchronous error handling with timeout protection.
  */
 export async function generateValidatedLadder(
   wordLength: number,
@@ -483,18 +553,44 @@ export async function generateValidatedLadder(
   options?: { timeoutMs?: number; maxAttempts?: number }
 ): Promise<{ start: string; end: string; path: string[] } | null> {
   const cswSet = getCollinsWordsSet();
-  const eligibleWords = Array.from(cswSet).filter(w => w.length === wordLength);
+  const disqualified = getDisqualifiedWordsSet();
+
+  // Filter out any word that has ever been disqualified from puzzle generation
+  const eligibleWords = Array.from(cswSet).filter(
+    w => w.length === wordLength && !disqualified.has(w)
+  );
   if (eligibleWords.length < 2) return null;
 
-  const maxAttempts = options?.maxAttempts ?? 25;
+  // Active search lexicon strictly excluding disqualified words
+  const cleanLexicon = new Set<string>();
+  for (const w of cswSet) {
+    if (w.length === wordLength && !disqualified.has(w)) {
+      cleanLexicon.add(w);
+    }
+  }
+
+  const maxAttempts = options?.maxAttempts ?? 30;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const startCandidate = eligibleWords[Math.floor(Math.random() * eligibleWords.length)];
     const endCandidate = eligibleWords[Math.floor(Math.random() * eligibleWords.length)];
     if (startCandidate === endCandidate) continue;
 
-    // Fast candidate path search using CSW foundational lexicon
-    const rawPath = findShortestPath(startCandidate, endCandidate, cswSet);
+    // Validate start and end candidate words first
+    const startVal = await validateCollinsWord(startCandidate, { timeoutMs: options?.timeoutMs ?? 2500 });
+    if (!startVal.valid || startVal.isExcluded) {
+      disqualifyWord(startCandidate);
+      continue;
+    }
+
+    const endVal = await validateCollinsWord(endCandidate, { timeoutMs: options?.timeoutMs ?? 2500 });
+    if (!endVal.valid || endVal.isExcluded) {
+      disqualifyWord(endCandidate);
+      continue;
+    }
+
+    // Fast candidate path search using clean CSW foundational lexicon
+    const rawPath = findShortestPath(startCandidate, endCandidate, cleanLexicon);
     if (!rawPath || rawPath.length < minSteps || rawPath.length > maxSteps + 1) {
       continue;
     }
@@ -504,8 +600,16 @@ export async function generateValidatedLadder(
     const validatedSteps: string[] = [];
 
     for (const stepWord of rawPath) {
+      if (isWordDisqualified(stepWord)) {
+        pathIsValid = false;
+        break;
+      }
+
       const validation = await validateCollinsWord(stepWord, { timeoutMs: options?.timeoutMs ?? 3000 });
       if (!validation.valid || validation.isExcluded) {
+        // If the word is flagged as not valid, do not use that word in the puzzle generation
+        // and disqualify it for any other future puzzle generations!
+        disqualifyWord(stepWord);
         pathIsValid = false;
         break;
       }
@@ -534,8 +638,13 @@ export async function generateValidatedLadder(
     let allValid = true;
     const validatedSteps: string[] = [];
     for (const step of fb.path) {
+      if (isWordDisqualified(step)) {
+        allValid = false;
+        break;
+      }
       const v = await validateCollinsWord(step, { timeoutMs: 2000 });
       if (!v.valid || v.isExcluded) {
+        disqualifyWord(step);
         allValid = false;
         break;
       }

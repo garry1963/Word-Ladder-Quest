@@ -2,7 +2,14 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { getCollinsDefinition, validateCollinsWord, generateValidatedLadder, getCollinsApiKey } from './src/server/collinsService';
+import {
+  getCollinsDefinition,
+  validateCollinsWord,
+  generateValidatedLadder,
+  getCollinsApiKey,
+  getDisqualifiedWordsSet,
+  disqualifyWord
+} from './src/server/collinsService';
 
 async function startServer() {
   const app = express();
@@ -79,6 +86,23 @@ async function startServer() {
   };
   app.get('/api/ladder/generate', handleLadderGenerate);
   app.get('/api/dictionary/ladder/generate', handleLadderGenerate);
+
+  // Disqualified words management (blocked from all puzzle generations)
+  app.get('/api/dictionary/disqualified', (req, res) => {
+    setNoCache(res);
+    res.json({ disqualified: Array.from(getDisqualifiedWordsSet()) });
+  });
+
+  app.post('/api/dictionary/disqualify', (req, res) => {
+    setNoCache(res);
+    const word = req.body?.word;
+    if (word && typeof word === 'string') {
+      disqualifyWord(word);
+      res.json({ success: true, word: word.toUpperCase() });
+    } else {
+      res.status(400).json({ error: 'Word parameter required' });
+    }
+  });
 
   // Vite middleware for development vs static build for production
   if (process.env.NODE_ENV !== 'production') {

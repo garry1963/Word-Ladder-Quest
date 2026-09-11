@@ -7,7 +7,10 @@ import {
   getCollinsDefinition, 
   validateCollinsWord,
   detectExcludedMetadata,
-  generateValidatedLadder
+  generateValidatedLadder,
+  disqualifyWord,
+  isWordDisqualified,
+  getDisqualifiedWordsSet
 } from "./collinsService";
 
 interface TestResult {
@@ -245,6 +248,44 @@ async function runTests() {
     "Ladder Generation",
     "generateValidatedLadder generates valid ladder or verified fallback",
     testLadder !== null && testLadder.path.length >= 4 && testLadder.start.length === 4
+  );
+
+  // Test Word Disqualification for Invalid Words
+  console.log("▶ Testing Disqualification of Invalid Words for Future Puzzle Generations...");
+  
+  // 1. Manually disqualify a test candidate word
+  disqualifyWord("testdisqual");
+  assert(
+    "Disqualification",
+    "disqualifyWord adds word to disqualified set",
+    isWordDisqualified("testdisqual") === true
+  );
+
+  // 2. Validate that validateCollinsWord rejects disqualified word immediately
+  const disqValidation = await validateCollinsWord("testdisqual");
+  assert(
+    "Disqualification",
+    "validateCollinsWord immediately rejects previously disqualified word",
+    disqValidation.valid === false && disqValidation.isExcluded === true
+  );
+
+  // 3. Validate that an invalid word (not in CSW) gets automatically disqualified
+  const nonExistentWord = "zqxjk99";
+  const nonExistentVal = await validateCollinsWord(nonExistentWord);
+  assert(
+    "Disqualification",
+    "validateCollinsWord automatically flags and disqualifies non-existent word",
+    nonExistentVal.valid === false && isWordDisqualified(nonExistentWord) === true
+  );
+
+  // 4. Validate that findShortestPath does not route through disqualified word
+  const mockDict = new Set<string>(["cold", "cord", "card", "ward", "warm"]);
+  disqualifyWord("cord");
+  const pathWithDisqualified = findShortestPath("cold", "warm", mockDict);
+  assert(
+    "Disqualification",
+    "findShortestPath strictly avoids path through disqualified word 'cord'",
+    pathWithDisqualified === null || !pathWithDisqualified.includes("cord")
   );
 
   // Verify built-in offline vocabulary safety net

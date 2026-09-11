@@ -20,6 +20,63 @@ export const ALL_WORDS_SET = new Set<string>([
 ]);
 
 export const LOCAL_STORAGE_KEY_VERIFIED_WORDS = "wordladder_verified_custom_words_v1";
+export const LOCAL_STORAGE_KEY_DISQUALIFIED_WORDS = "wordladder_disqualified_words_v1";
+
+// Safely load stored disqualified words on initialization
+export function loadDisqualifiedWords(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY_DISQUALIFIED_WORDS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map((w: string) => w.toLowerCase().trim()).filter(Boolean);
+    }
+  } catch (e) {
+    console.error("Failed to load disqualified words", e);
+  }
+  return [];
+}
+
+export const DISQUALIFIED_WORDS_SET = new Set<string>(loadDisqualifiedWords());
+
+/**
+ * Permanently disqualifies a word from puzzle generation.
+ * Removes it from ALL_WORDS_SET, persists to localStorage, and notifies the backend server.
+ */
+export function disqualifyWordForPuzzles(word: string): void {
+  const clean = word.toLowerCase().trim();
+  if (!clean) return;
+
+  DISQUALIFIED_WORDS_SET.add(clean);
+  ALL_WORDS_SET.delete(clean);
+
+  if (typeof window !== "undefined") {
+    try {
+      const existing = loadDisqualifiedWords();
+      if (!existing.includes(clean)) {
+        const updated = [...existing, clean];
+        localStorage.setItem(LOCAL_STORAGE_KEY_DISQUALIFIED_WORDS, JSON.stringify(updated));
+      }
+    } catch (e) {
+      console.error("Failed to save disqualified word", e);
+    }
+
+    // Proactively notify backend server
+    fetch("/api/dictionary/disqualify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word: clean }),
+    }).catch(() => {});
+  }
+}
+
+export function isWordDisqualified(word: string): boolean {
+  return DISQUALIFIED_WORDS_SET.has(word.toLowerCase().trim());
+}
+
+// Remove any initially disqualified words from ALL_WORDS_SET
+DISQUALIFIED_WORDS_SET.forEach((w) => ALL_WORDS_SET.delete(w));
 
 // Safely load stored custom verified words on initialization
 export function loadVerifiedCustomWords(): string[] {

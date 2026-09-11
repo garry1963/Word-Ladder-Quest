@@ -17,7 +17,7 @@ import {
   EyeOff
 } from "lucide-react";
 import { findShortestPath } from "../utils/helpers";
-import { ALL_WORDS_SET, addVerifiedCustomWord } from "../utils/dictionary";
+import { ALL_WORDS_SET, addVerifiedCustomWord, disqualifyWordForPuzzles } from "../utils/dictionary";
 import { verifyWordWithCollins } from "../utils/collinsClient";
 import { CustomPuzzle, Level } from "../types";
 import { playSuccessStepSound, playErrorSound } from "../utils/audio";
@@ -74,45 +74,75 @@ export default function PuzzleCreator({
     let startValid = ALL_WORDS_SET.has(start.toLowerCase());
     let targetValid = ALL_WORDS_SET.has(target.toLowerCase());
 
-    if (!startValid) {
-      try {
-        const v = await verifyWordWithCollins(start.toLowerCase());
-        if (v.valid) {
-          ALL_WORDS_SET.add(start.toLowerCase());
-          addVerifiedCustomWord(start);
-          startValid = true;
-        }
-      } catch {
-        // proceed
+    try {
+      const vStart = await verifyWordWithCollins(start.toLowerCase());
+      if (vStart.valid && !vStart.isExcluded) {
+        ALL_WORDS_SET.add(start.toLowerCase());
+        addVerifiedCustomWord(start);
+        startValid = true;
+      } else {
+        disqualifyWordForPuzzles(start.toLowerCase());
+        startValid = false;
       }
+    } catch {
+      // proceed with offline dictionary
     }
 
-    if (!targetValid) {
-      try {
-        const v = await verifyWordWithCollins(target.toLowerCase());
-        if (v.valid) {
-          ALL_WORDS_SET.add(target.toLowerCase());
-          addVerifiedCustomWord(target);
-          targetValid = true;
-        }
-      } catch {
-        // proceed
+    try {
+      const vTarget = await verifyWordWithCollins(target.toLowerCase());
+      if (vTarget.valid && !vTarget.isExcluded) {
+        ALL_WORDS_SET.add(target.toLowerCase());
+        addVerifiedCustomWord(target);
+        targetValid = true;
+      } else {
+        disqualifyWordForPuzzles(target.toLowerCase());
+        targetValid = false;
       }
+    } catch {
+      // proceed with offline dictionary
     }
 
     if (!startValid && !targetValid) {
+      disqualifyWordForPuzzles(start.toLowerCase());
+      disqualifyWordForPuzzles(target.toLowerCase());
       playErrorSound();
       setFeedback({ status: 'error', message: `Neither "${start}" nor "${target}" were verified by Collins Dictionary.` });
+      return;
     } else if (!startValid) {
+      disqualifyWordForPuzzles(start.toLowerCase());
       playErrorSound();
       setFeedback({ status: 'error', message: `"${start}" is not recognized as a valid Collins word.` });
+      return;
     } else if (!targetValid) {
+      disqualifyWordForPuzzles(target.toLowerCase());
       playErrorSound();
       setFeedback({ status: 'error', message: `"${target}" is not recognized as a valid Collins word.` });
+      return;
     }
 
-    // Solve path
-    const path = findShortestPath(start.toLowerCase(), target.toLowerCase(), ALL_WORDS_SET);
+    // Solve path and validate every step against Collins Dictionary
+    let path = findShortestPath(start.toLowerCase(), target.toLowerCase(), ALL_WORDS_SET);
+    
+    if (path) {
+      // Validate each intermediate step
+      let allStepsValid = true;
+      for (const step of path) {
+        try {
+          const vStep = await verifyWordWithCollins(step.toLowerCase());
+          if (!vStep.valid || vStep.isExcluded) {
+            disqualifyWordForPuzzles(step.toLowerCase());
+            allStepsValid = false;
+          }
+        } catch {
+          // offline check
+        }
+      }
+
+      // If any step was disqualified, recalculate path excluding it
+      if (!allStepsValid) {
+        path = findShortestPath(start.toLowerCase(), target.toLowerCase(), ALL_WORDS_SET);
+      }
+    }
     
     if (path) {
       playSuccessStepSound();
@@ -126,7 +156,7 @@ export default function PuzzleCreator({
       playErrorSound();
       setFeedback({
         status: 'error',
-        message: `Isolations Detected! No valid word-ladder step sequence can connect "${start}" to "${target}" within our offline alchemist guide.`
+        message: `Isolations Detected! No valid word-ladder step sequence can connect "${start}" to "${target}" using validated Collins words.`
       });
     }
   };

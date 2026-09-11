@@ -29,7 +29,13 @@ import {
   findShortestPath, 
   areWordsOneLetterApart 
 } from "../utils/helpers";
-import { ALL_WORDS_SET, OFFLINE_DICTIONARY, addVerifiedCustomWord, isVerifiedCustomWord } from "../utils/dictionary";
+import { 
+  ALL_WORDS_SET, 
+  OFFLINE_DICTIONARY, 
+  addVerifiedCustomWord, 
+  isVerifiedCustomWord,
+  disqualifyWordForPuzzles 
+} from "../utils/dictionary";
 import { lookupCollinsDefinition, verifyWordWithCollins, CollinsDefinitionResult } from "../utils/collinsClient";
 import { 
   playKeyTapSound, 
@@ -234,6 +240,7 @@ export default function GameBoard({
     try {
       const validation = await verifyWordWithCollins(lowercaseCandidate);
       if (validation.isExcluded) {
+        disqualifyWordForPuzzles(lowercaseCandidate);
         setIsValidatingWord(false);
         setUnverifiedCandidateWord(candidate);
         triggerError(validation.reason || `"${candidate}" is excluded: tagged as ${validation.exclusionTag} in Collins Dictionary.`);
@@ -247,6 +254,7 @@ export default function GameBoard({
         setVerifiedWordNotice(`"${candidate}" validated by Collins English Dictionary!`);
         setTimeout(() => setVerifiedWordNotice(null), 3500);
       } else {
+        disqualifyWordForPuzzles(lowercaseCandidate);
         setIsValidatingWord(false);
         setUnverifiedCandidateWord(candidate);
         triggerError(validation.reason || `"${candidate}" is not recognized in the Collins Dictionary.`);
@@ -261,6 +269,7 @@ export default function GameBoard({
     }
 
     if (!inDict) {
+      disqualifyWordForPuzzles(lowercaseCandidate);
       setUnverifiedCandidateWord(candidate);
       triggerError(`"${candidate}" is not found in Collins English Dictionary or wordlist.`);
       return;

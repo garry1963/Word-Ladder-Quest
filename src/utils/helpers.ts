@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { isWordDisqualified, disqualifyWordForPuzzles } from "./dictionary";
+import { verifyWordWithCollins, fetchValidatedLadder } from "./collinsClient";
+
 /**
  * Validates if two words of the same length are exactly one letter apart.
  */
@@ -47,7 +50,8 @@ export function getSeededSolvablePair(
 ): { start: string; end: string; path: string[] } {
   const rand = getSeededRandom(seed);
   const dictSet = dictionary;
-  const list = Array.from(dictSet).filter(w => w.length === wordLength);
+  // Strictly filter out any word that has ever been disqualified from puzzle generation
+  const list = Array.from(dictSet).filter(w => w.length === wordLength && !isWordDisqualified(w));
 
   if (list.length < 2) {
     if (wordLength === 3) return { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] };
@@ -62,7 +66,7 @@ export function getSeededSolvablePair(
     const start = list[startIdx];
     const end = list[endIdx];
 
-    if (start === end) continue;
+    if (start === end || isWordDisqualified(start) || isWordDisqualified(end)) continue;
 
     const path = findShortestPath(start, end, dictSet);
     if (path && path.length >= minSteps && path.length <= maxSteps + 1) {
@@ -81,7 +85,7 @@ export function getSeededSolvablePair(
     const start = list[startIdx];
     const end = list[endIdx];
 
-    if (start === end) continue;
+    if (start === end || isWordDisqualified(start) || isWordDisqualified(end)) continue;
 
     const path = findShortestPath(start, end, dictSet);
     if (path && path.length >= 4) {
@@ -105,7 +109,7 @@ export function getSeededSolvablePair(
 
 /**
  * Uses Breadth-First Search (BFS) to find the shortest path from start Word to end Word.
- * Relies on the provided offline dictionary Set.
+ * Disqualified words are strictly excluded from the search graph.
  */
 export function findShortestPath(
   startWord: string,
@@ -116,13 +120,14 @@ export function findShortestPath(
   const end = endWord.toLowerCase().trim();
 
   if (start.length !== end.length) return null;
+  if (isWordDisqualified(start) || isWordDisqualified(end)) return null;
   
-  // Create a temporary set of valid words that matches our length
-  // We make sure both starts and ends are in the search-space
+  // Create a temporary set of valid words that matches our length excluding disqualified words
   const validWords = new Set<string>();
   dictionary.forEach(w => {
-    if (w.length === start.length) {
-      validWords.add(w.toLowerCase());
+    const clean = w.toLowerCase().trim();
+    if (clean.length === start.length && !isWordDisqualified(clean)) {
+      validWords.add(clean);
     }
   });
 
@@ -205,7 +210,8 @@ export function getRandomSolvablePair(
   minSteps: number = 4,
   maxSteps: number = 7
 ): { start: string; end: string; path: string[] } | null {
-  const list = Array.from(dictionary).filter(w => w.length === wordLength);
+  // Strictly filter out any word that has ever been disqualified from puzzle generation
+  const list = Array.from(dictionary).filter(w => w.length === wordLength && !isWordDisqualified(w));
   if (list.length < 2) return null;
 
   // Let's perform a fast random search for a valid pair
@@ -214,7 +220,7 @@ export function getRandomSolvablePair(
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const start = list[Math.floor(Math.random() * list.length)];
     const end = list[Math.floor(Math.random() * list.length)];
-    if (start === end) continue;
+    if (start === end || isWordDisqualified(start) || isWordDisqualified(end)) continue;
 
     const path = findShortestPath(start, end, dictionary);
     if (path && path.length >= minSteps && path.length <= maxSteps + 1) {
@@ -234,4 +240,108 @@ export function getRandomSolvablePair(
   } else {
     return { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] };
   }
+}
+
+/**
+ * Validated Puzzle Generation Function
+ * 
+ * During the puzzle generation process, validates each selected word (start, target,
+ * and every intermediate ladder step) using the Collins Dictionary.
+ * If the word is flagged as not valid, it will NOT be used in the puzzle generation
+ * AND is permanently disqualified from any future puzzle generations.
+ */
+export async function getRandomSolvablePairWithCollinsValidation(
+  wordLength: number,
+  dictionary: Set<string>,
+  minSteps: number = 4,
+  maxSteps: number = 7,
+  maxAttempts: number = 25
+): Promise<{ start: string; end: string; path: string[] } | null> {
+  // 1. First prioritize the authoritative Collins server-side generation
+  try {
+    const serverLadder = await fetchValidatedLadder(wordLength, minSteps, maxSteps);
+    if (serverLadder && serverLadder.path && serverLadder.path.length >= minSteps) {
+      return serverLadder;
+    }
+  } catch (err) {
+    // Graceful fallback to client-side Collins validation loop
+  }
+
+  // 2. Client-side generator with Collins validation and permanent disqualification
+  const list = Array.from(dictionary).filter(w => w.length === wordLength && !isWordDisqualified(w));
+  if (list.length < 2) return null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const start = list[Math.floor(Math.random() * list.length)];
+    const end = list[Math.floor(Math.random() * list.length)];
+    if (start === end || isWordDisqualified(start) || isWordDisqualified(end)) continue;
+
+    // Validate start word with Collins Dictionary
+    const startCheck = await verifyWordWithCollins(start);
+    if (!startCheck.valid || startCheck.isExcluded) {
+      // Flagged as not valid: disqualify for current and all future puzzle generations
+      disqualifyWordForPuzzles(start);
+      continue;
+    }
+
+    // Validate target word with Collins Dictionary
+    const endCheck = await verifyWordWithCollins(end);
+    if (!endCheck.valid || endCheck.isExcluded) {
+      // Flagged as not valid: disqualify for current and all future puzzle generations
+      disqualifyWordForPuzzles(end);
+      continue;
+    }
+
+    const path = findShortestPath(start, end, dictionary);
+    if (!path || path.length < minSteps || path.length > maxSteps + 1) continue;
+
+    let pathValid = true;
+    const validatedSteps: string[] = [];
+
+    for (const step of path) {
+      if (isWordDisqualified(step)) {
+        pathValid = false;
+        break;
+      }
+
+      // Validate each step in the ladder using the Collins Dictionary
+      const stepCheck = await verifyWordWithCollins(step);
+      if (!stepCheck.valid || stepCheck.isExcluded) {
+        // Flagged as not valid: do not use in this puzzle and permanently disqualify
+        disqualifyWordForPuzzles(step);
+        pathValid = false;
+        break;
+      }
+      validatedSteps.push(step.toUpperCase());
+    }
+
+    if (pathValid && validatedSteps.length === path.length) {
+      return {
+        start: validatedSteps[0],
+        end: validatedSteps[validatedSteps.length - 1],
+        path: validatedSteps,
+      };
+    }
+  }
+
+  // Curated fallbacks with verification
+  const fallbacks: Record<number, { start: string; end: string; path: string[] }> = {
+    3: { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] },
+    4: { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] },
+    5: { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] },
+  };
+
+  const fb = fallbacks[wordLength];
+  if (fb) {
+    let allOk = true;
+    for (const s of fb.path) {
+      if (isWordDisqualified(s)) {
+        allOk = false;
+        break;
+      }
+    }
+    if (allOk) return fb;
+  }
+
+  return null;
 }

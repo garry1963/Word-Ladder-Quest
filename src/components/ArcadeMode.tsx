@@ -19,8 +19,12 @@ import {
   Flame,
   Award
 } from "lucide-react";
-import { getRandomSolvablePair, areWordsOneLetterApart } from "../utils/helpers";
-import { ALL_WORDS_SET } from "../utils/dictionary";
+import { 
+  getRandomSolvablePair, 
+  getRandomSolvablePairWithCollinsValidation, 
+  areWordsOneLetterApart 
+} from "../utils/helpers";
+import { ALL_WORDS_SET, disqualifyWordForPuzzles } from "../utils/dictionary";
 import { verifyWordWithCollins } from "../utils/collinsClient";
 import { playSuccessStepSound, playErrorSound, playLevelVictorySound } from "../utils/audio";
 
@@ -58,9 +62,9 @@ export default function ArcadeMode({ highScore, onUpdateHighScore }: ArcadeModeP
     loadNewMiniLadder(wordLength);
   };
 
-  // Loads a brand new random solvable ladder pair
-  const loadNewMiniLadder = (len: number) => {
-    const pair = getRandomSolvablePair(len, ALL_WORDS_SET, 4, 7);
+  // Loads a brand new random solvable ladder pair validating each word with Collins
+  const loadNewMiniLadder = async (len: number) => {
+    const pair = await getRandomSolvablePairWithCollinsValidation(len, ALL_WORDS_SET, 4, 7);
     if (pair) {
       setStartWord(pair.start);
       setTargetWord(pair.end);
@@ -127,19 +131,21 @@ export default function ArcadeMode({ highScore, onUpdateHighScore }: ArcadeModeP
     }
 
     let inDict = ALL_WORDS_SET.has(candidate.toLowerCase());
-    if (!inDict) {
-      try {
-        const validation = await verifyWordWithCollins(candidate.toLowerCase());
-        if (validation.valid) {
-          ALL_WORDS_SET.add(candidate.toLowerCase());
-          inDict = true;
-        }
-      } catch {
-        // Continue with unverified check
+    try {
+      const validation = await verifyWordWithCollins(candidate.toLowerCase());
+      if (validation.valid && !validation.isExcluded) {
+        ALL_WORDS_SET.add(candidate.toLowerCase());
+        inDict = true;
+      } else {
+        disqualifyWordForPuzzles(candidate.toLowerCase());
+        inDict = false;
       }
+    } catch {
+      // Continue with dictionary check
     }
 
     if (!inDict) {
+      disqualifyWordForPuzzles(candidate.toLowerCase());
       triggerErrorFlash();
       return;
     }
