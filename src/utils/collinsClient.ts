@@ -133,9 +133,27 @@ export async function verifyWordWithCollins(
   options?: { timeoutMs?: number }
 ): Promise<CollinsValidationClientResult> {
   const cleanWord = word.trim().toLowerCase();
-  if (!cleanWord) return { valid: false, source: "Collins English Dictionary", reason: "Word cannot be empty" };
+  if (!cleanWord) return { valid: false, source: "Hardcoded Word List", reason: "Word cannot be empty" };
 
-  const timeoutMs = options?.timeoutMs ?? 5000;
+  // 1. Authoritative hardcoded word list check (instant, reliable, offline-ready)
+  if (ALL_WORDS_SET.has(cleanWord)) {
+    return {
+      valid: true,
+      source: "Hardcoded Word List",
+    };
+  }
+
+  // 2. Offline dictionary check
+  if (OFFLINE_DICTIONARY[cleanWord]) {
+    ALL_WORDS_SET.add(cleanWord);
+    addVerifiedCustomWord(cleanWord);
+    return {
+      valid: true,
+      source: "Hardcoded Word List",
+    };
+  }
+
+  const timeoutMs = options?.timeoutMs ?? 4000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -188,19 +206,8 @@ export async function verifyWordWithCollins(
     console.warn("Collins API validation check encountered an issue:", err);
   }
 
-  // Fallback to offline CSW list if server network request timed out or failed
-  if (ALL_WORDS_SET.has(cleanWord)) {
-    return { valid: true, source: "Collins English Dictionary (CSW Foundational)" };
-  }
-
-  if (OFFLINE_DICTIONARY[cleanWord]) {
-    ALL_WORDS_SET.add(cleanWord);
-    addVerifiedCustomWord(cleanWord);
-    return { valid: true, source: "Collins English Dictionary (CSW Foundational)" };
-  }
-
   // Unverified word
-  return { valid: false, source: "Collins English Dictionary", reason: `"${cleanWord.toUpperCase()}" is not recognized in the Collins Dictionary.` };
+  return { valid: false, source: "Hardcoded Word List", reason: `"${cleanWord.toUpperCase()}" is not in the hardcoded word list.` };
 }
 
 /**

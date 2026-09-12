@@ -245,86 +245,33 @@ export function getRandomSolvablePair(
 /**
  * Validated Puzzle Generation Function
  * 
- * During the puzzle generation process, validates each selected word (start, target,
- * and every intermediate ladder step) using the Collins Dictionary.
- * If the word is flagged as not valid, it will NOT be used in the puzzle generation
- * AND is permanently disqualified from any future puzzle generations.
+ * Generates a solvable word ladder pair using the hardcoded word list.
+ * Collins Dictionary is exclusively utilized for looking up word definitions.
  */
 export async function getRandomSolvablePairWithCollinsValidation(
   wordLength: number,
   dictionary: Set<string>,
   minSteps: number = 4,
   maxSteps: number = 7,
-  maxAttempts: number = 25
+  maxAttempts: number = 50
 ): Promise<{ start: string; end: string; path: string[] } | null> {
-  // 1. First prioritize the authoritative Collins server-side generation
+  // 1. First prioritize server-side ladder generation if available
   try {
     const serverLadder = await fetchValidatedLadder(wordLength, minSteps, maxSteps);
     if (serverLadder && serverLadder.path && serverLadder.path.length >= minSteps) {
       return serverLadder;
     }
   } catch (err) {
-    // Graceful fallback to client-side Collins validation loop
+    // Graceful fallback to client-side generation
   }
 
-  // 2. Client-side generator with Collins validation and permanent disqualification
-  const list = Array.from(dictionary).filter(w => w.length === wordLength && !isWordDisqualified(w));
-  if (list.length < 2) return null;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const start = list[Math.floor(Math.random() * list.length)];
-    const end = list[Math.floor(Math.random() * list.length)];
-    if (start === end || isWordDisqualified(start) || isWordDisqualified(end)) continue;
-
-    // Validate start word with Collins Dictionary
-    const startCheck = await verifyWordWithCollins(start);
-    if (!startCheck.valid || startCheck.isExcluded) {
-      // Flagged as not valid: disqualify for current and all future puzzle generations
-      disqualifyWordForPuzzles(start);
-      continue;
-    }
-
-    // Validate target word with Collins Dictionary
-    const endCheck = await verifyWordWithCollins(end);
-    if (!endCheck.valid || endCheck.isExcluded) {
-      // Flagged as not valid: disqualify for current and all future puzzle generations
-      disqualifyWordForPuzzles(end);
-      continue;
-    }
-
-    const path = findShortestPath(start, end, dictionary);
-    if (!path || path.length < minSteps || path.length > maxSteps + 1) continue;
-
-    let pathValid = true;
-    const validatedSteps: string[] = [];
-
-    for (const step of path) {
-      if (isWordDisqualified(step)) {
-        pathValid = false;
-        break;
-      }
-
-      // Validate each step in the ladder using the Collins Dictionary
-      const stepCheck = await verifyWordWithCollins(step);
-      if (!stepCheck.valid || stepCheck.isExcluded) {
-        // Flagged as not valid: do not use in this puzzle and permanently disqualify
-        disqualifyWordForPuzzles(step);
-        pathValid = false;
-        break;
-      }
-      validatedSteps.push(step.toUpperCase());
-    }
-
-    if (pathValid && validatedSteps.length === path.length) {
-      return {
-        start: validatedSteps[0],
-        end: validatedSteps[validatedSteps.length - 1],
-        path: validatedSteps,
-      };
-    }
+  // 2. Generate solvable pair directly from the hardcoded word list
+  const generated = getRandomSolvablePair(wordLength, dictionary, minSteps, maxSteps);
+  if (generated) {
+    return generated;
   }
 
-  // Curated fallbacks with verification
+  // Curated fallbacks
   const fallbacks: Record<number, { start: string; end: string; path: string[] }> = {
     3: { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] },
     4: { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] },
@@ -332,16 +279,7 @@ export async function getRandomSolvablePairWithCollinsValidation(
   };
 
   const fb = fallbacks[wordLength];
-  if (fb) {
-    let allOk = true;
-    for (const s of fb.path) {
-      if (isWordDisqualified(s)) {
-        allOk = false;
-        break;
-      }
-    }
-    if (allOk) return fb;
-  }
+  if (fb) return fb;
 
   return null;
 }

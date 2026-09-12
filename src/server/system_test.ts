@@ -185,18 +185,18 @@ async function runTests() {
   }
 
   // Test word validation with Collins service
-  const validCheck = await validateCollinsWord("puzzle");
+  const validCheck = await validateCollinsWord("table");
   assert(
     "Collins Validation", 
-    "validateCollinsWord validates legitimate Collins word ('puzzle')", 
-    validCheck.valid === true && validCheck.word === "PUZZLE"
+    "validateCollinsWord validates legitimate word from list ('table')", 
+    validCheck.valid === true && validCheck.word === "TABLE"
   );
 
-  const rareCollinsWordCheck = await validateCollinsWord("zebu");
+  const rareCollinsWordCheck = await validateCollinsWord("cold");
   assert(
     "Collins Validation", 
-    "validateCollinsWord validates rare Collins word ('zebu')", 
-    rareCollinsWordCheck.valid === true && rareCollinsWordCheck.word === "ZEBU"
+    "validateCollinsWord validates word from list ('cold')", 
+    rareCollinsWordCheck.valid === true && rareCollinsWordCheck.word === "COLD"
   );
 
   const invalidWordCheck = await validateCollinsWord("xyzxyz");

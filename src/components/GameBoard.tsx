@@ -232,46 +232,36 @@ export default function GameBoard({
       return;
     }
 
-    // Check if legitimate word
+    // Check if legitimate word against hardcoded word list
     const lowercaseCandidate = candidate.toLowerCase();
     setIsValidatingWord(true);
-    let inDict = false;
+    let inDict = ALL_WORDS_SET.has(lowercaseCandidate);
 
-    try {
-      const validation = await verifyWordWithCollins(lowercaseCandidate);
-      if (validation.isExcluded) {
-        disqualifyWordForPuzzles(lowercaseCandidate);
+    if (!inDict) {
+      try {
+        const validation = await verifyWordWithCollins(lowercaseCandidate);
+        if (validation.valid) {
+          ALL_WORDS_SET.add(lowercaseCandidate);
+          inDict = true;
+        } else {
+          setIsValidatingWord(false);
+          setUnverifiedCandidateWord(candidate);
+          triggerError(validation.reason || `"${candidate}" is not in the hardcoded word list.`);
+          return;
+        }
+      } catch (err) {
+        // Fallback check
+        inDict = ALL_WORDS_SET.has(lowercaseCandidate);
+      } finally {
         setIsValidatingWord(false);
-        setUnverifiedCandidateWord(candidate);
-        triggerError(validation.reason || `"${candidate}" is excluded: tagged as ${validation.exclusionTag} in Collins Dictionary.`);
-        return;
       }
-
-      if (validation.valid) {
-        ALL_WORDS_SET.add(lowercaseCandidate);
-        addVerifiedCustomWord(candidate);
-        inDict = true;
-        setVerifiedWordNotice(`"${candidate}" validated by Collins English Dictionary!`);
-        setTimeout(() => setVerifiedWordNotice(null), 3500);
-      } else {
-        disqualifyWordForPuzzles(lowercaseCandidate);
-        setIsValidatingWord(false);
-        setUnverifiedCandidateWord(candidate);
-        triggerError(validation.reason || `"${candidate}" is not recognized in the Collins Dictionary.`);
-        return;
-      }
-    } catch (err) {
-      console.warn("Unable to contact Collins validation API", err);
-      // Fallback to offline set
-      inDict = ALL_WORDS_SET.has(lowercaseCandidate);
-    } finally {
+    } else {
       setIsValidatingWord(false);
     }
 
     if (!inDict) {
-      disqualifyWordForPuzzles(lowercaseCandidate);
       setUnverifiedCandidateWord(candidate);
-      triggerError(`"${candidate}" is not found in Collins English Dictionary or wordlist.`);
+      triggerError(`"${candidate}" is not in the allowed word list.`);
       return;
     }
 
