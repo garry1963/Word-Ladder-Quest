@@ -16,32 +16,44 @@ import {
   Trophy,
   Star
 } from "lucide-react";
-import { Level, PlayerStats } from "../types";
+import { Level, PlayerStats, PuzzleDifficulty } from "../types";
 import { ALL_WORDS_SET } from "../utils/dictionary";
-import { getSeededSolvablePair } from "../utils/helpers";
+import { getSeededSolvablePair, getDifficultySteps } from "../utils/helpers";
 
 interface DailyChallengeProps {
   stats: PlayerStats;
   onPlayDaily: (level: Level) => void;
+  difficulty?: PuzzleDifficulty;
+  onOpenSettings?: () => void;
 }
 
-export default function DailyChallenge({ stats, onPlayDaily }: DailyChallengeProps) {
+export default function DailyChallenge({ 
+  stats, 
+  onPlayDaily, 
+  difficulty = 'default',
+  onOpenSettings 
+}: DailyChallengeProps) {
   const today = new Date();
   const dateString = today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   
   // Date seed calculation (YYYYMMDD)
   const todaySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
 
-  // Generate 3 date-seeded daily levels with varying difficulty and length
-  const easyPair = getSeededSolvablePair(3, ALL_WORDS_SET, todaySeed + 100, 4, 5);
-  const mediumPair = getSeededSolvablePair(4, ALL_WORDS_SET, todaySeed + 200, 5, 7);
-  const hardPair = getSeededSolvablePair(5, ALL_WORDS_SET, todaySeed + 300, 6, 9);
+  // Generate 3 date-seeded daily levels with configured difficulty steps
+  const easySteps = getDifficultySteps(3, difficulty);
+  const mediumSteps = getDifficultySteps(4, difficulty);
+  const hardSteps = getDifficultySteps(5, difficulty);
+
+  const seedOffset = difficulty === 'raised' ? 7777 : 0;
+  const easyPair = getSeededSolvablePair(3, ALL_WORDS_SET, todaySeed + 100 + seedOffset, easySteps.minSteps, easySteps.maxSteps, difficulty);
+  const mediumPair = getSeededSolvablePair(4, ALL_WORDS_SET, todaySeed + 200 + seedOffset, mediumSteps.minSteps, mediumSteps.maxSteps, difficulty);
+  const hardPair = getSeededSolvablePair(5, ALL_WORDS_SET, todaySeed + 300 + seedOffset, hardSteps.minSteps, hardSteps.maxSteps, difficulty);
 
   const easyPar = easyPair.path.length - 1;
   const mediumPar = mediumPair.path.length - 1;
   const hardPar = hardPair.path.length - 1;
 
-  const dailyId = `daily-${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+  const dailyId = `daily-${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}${difficulty === 'raised' ? '-r' : ''}`;
 
   // Define the set of 3 daily quests
   const quests = [
@@ -52,7 +64,9 @@ export default function DailyChallenge({ stats, onPlayDaily }: DailyChallengePro
       target: easyPair.end,
       par: easyPar,
       difficulty: "Easy" as const,
-      description: "A fast-paced 3-letter sequence to warm up your linguistic engines.",
+      description: difficulty === 'raised'
+        ? "A challenging 4–5 step 3-letter sequence to test your speed."
+        : "A fast-paced 2–3 step 3-letter sequence to warm up your linguistic engines.",
       badge: "Scribe"
     },
     {
@@ -62,7 +76,9 @@ export default function DailyChallenge({ stats, onPlayDaily }: DailyChallengePro
       target: mediumPair.end,
       par: mediumPar,
       difficulty: "Medium" as const,
-      description: "The classic 4-letter corridor shift. Requires smooth planning.",
+      description: difficulty === 'raised'
+        ? "An intricate 5–6 step 4-letter corridor shift requiring deep planning."
+        : "The classic 3–4 step 4-letter corridor shift. Requires smooth planning.",
       badge: "Alchemist"
     },
     {
@@ -72,7 +88,9 @@ export default function DailyChallenge({ stats, onPlayDaily }: DailyChallengePro
       target: hardPair.end,
       par: hardPar,
       difficulty: "Hard" as const,
-      description: "Elite 5-letter navigation space. Only true word-craft scholars conquer this.",
+      description: difficulty === 'raised'
+        ? "Master-tier 5-letter navigation spanning 5–6 challenging steps."
+        : "Elite 5-letter navigation space. Only true word-craft scholars conquer this.",
       badge: "Scholar"
     }
   ];
@@ -120,6 +138,33 @@ export default function DailyChallenge({ stats, onPlayDaily }: DailyChallengePro
             Every 24 hours, three custom date-seeded quests of Easy, Medium, and Hard tiers are refreshed. Keep your alchemist flame alive by engineering your daily word mutations!
           </p>
         </div>
+      </div>
+
+      {/* Difficulty Indicator Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white/90 border border-slate-200/80 rounded-2xl px-5 py-3.5 shadow-xs" id="daily-difficulty-indicator">
+        <div className="flex items-center gap-3">
+          <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
+            difficulty === 'raised'
+              ? "bg-amber-50 text-amber-800 border-amber-300"
+              : "bg-emerald-50 text-emerald-800 border-emerald-300"
+          }`}>
+            {difficulty === 'raised' ? "Difficulty: Raised" : "Difficulty: Default"}
+          </span>
+          <span className="text-xs text-slate-600 font-medium hidden sm:inline">
+            {difficulty === 'raised' 
+              ? "Challenging step paths (Novice: 4–5 steps • Adept: 5–6 steps • Archmage: 5–6 steps)"
+              : "Accessible step paths (Novice: 2–3 steps • Adept: 3–4 steps • Archmage: 3–4 steps)"}
+          </span>
+        </div>
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer flex items-center gap-1 ml-auto"
+            id="open-settings-from-daily"
+          >
+            Change in Settings →
+          </button>
+        )}
       </div>
 
       {/* Grid containing selector tabs, active trial panel, and streak tracker */}

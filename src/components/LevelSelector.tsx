@@ -17,39 +17,43 @@ import {
   Sparkles,
   RefreshCw
 } from "lucide-react";
-import { CHAPTERS } from "../data/levels";
-import { Level, PlayerStats, Chapter } from "../types";
+import { CHAPTERS, getChapters } from "../data/levels";
+import { Level, PlayerStats, Chapter, PuzzleDifficulty } from "../types";
 import { ALL_WORDS_SET } from "../utils/dictionary";
-import { getRandomSolvablePair } from "../utils/helpers";
+import { getRandomSolvablePair, getDifficultySteps } from "../utils/helpers";
 
 interface LevelSelectorProps {
   stats: PlayerStats;
   onSelectLevel: (level: Level) => void;
+  difficulty?: PuzzleDifficulty;
+  onOpenSettings?: () => void;
 }
 
-export default function LevelSelector({ stats, onSelectLevel }: LevelSelectorProps) {
+export default function LevelSelector({ 
+  stats, 
+  onSelectLevel, 
+  difficulty = 'default',
+  onOpenSettings 
+}: LevelSelectorProps) {
   const [selectedChapterId, setSelectedChapterId] = useState<string>("ch1");
 
   const [quickDifficulty, setQuickDifficulty] = useState<"Easy" | "Medium" | "Hard">("Medium");
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
+  const chapters = getChapters(difficulty);
+
   const handlePlayQuickLevel = () => {
     setIsGenerating(true);
     setTimeout(() => {
       let len = 4;
-      let minS = 3;
-      let maxS = 4;
       if (quickDifficulty === "Easy") {
         len = 3;
-        minS = 3;
-        maxS = 3;
       } else if (quickDifficulty === "Hard") {
         len = 5;
-        minS = 4;
-        maxS = 5;
       }
 
-      const pair = getRandomSolvablePair(len, ALL_WORDS_SET, minS, maxS);
+      const stepsConfig = getDifficultySteps(len, difficulty);
+      const pair = getRandomSolvablePair(len, ALL_WORDS_SET, stepsConfig.minSteps, stepsConfig.maxSteps, difficulty);
       if (pair) {
         const parVal = pair.path.length - 1;
         const dynamicLevel: Level = {
@@ -73,7 +77,7 @@ export default function LevelSelector({ stats, onSelectLevel }: LevelSelectorPro
 
     // To unlock Chapter 2, need at least 3 levels solved in Chapter 1 historically
     if (chapter.id === "ch2") {
-      const ch1LevelsSolved = CHAPTERS[0].levels.filter((lvl) => {
+      const ch1LevelsSolved = chapters[0].levels.filter((lvl) => {
         const baseId = lvl.id.split("-").slice(0, 2).join("-");
         return Object.keys(stats.completedLevels).some((key) => key.startsWith(baseId));
       }).length;
@@ -82,7 +86,7 @@ export default function LevelSelector({ stats, onSelectLevel }: LevelSelectorPro
 
     // To unlock Chapter 3, need at least 3 levels solved in Chapter 2 historically
     if (chapter.id === "ch3") {
-      const ch2LevelsSolved = CHAPTERS[1].levels.filter((lvl) => {
+      const ch2LevelsSolved = chapters[1].levels.filter((lvl) => {
         const baseId = lvl.id.split("-").slice(0, 2).join("-");
         return Object.keys(stats.completedLevels).some((key) => key.startsWith(baseId));
       }).length;
@@ -93,7 +97,7 @@ export default function LevelSelector({ stats, onSelectLevel }: LevelSelectorPro
   };
 
   // Render chapters and levels inside active chapter
-  const activeChapter = CHAPTERS.find((ch) => ch.id === selectedChapterId) || CHAPTERS[0];
+  const activeChapter = chapters.find((ch) => ch.id === selectedChapterId) || chapters[0];
 
   return (
     <div className="w-full py-6 px-4 max-w-7xl mx-auto animate-fade-in" id="level-selector-view">
@@ -120,10 +124,37 @@ export default function LevelSelector({ stats, onSelectLevel }: LevelSelectorPro
           <div>
             <p className="text-[10px] text-slate-400 uppercase tracking-wider font-mono font-bold">MUTATION LEVEL</p>
             <p className="text-lg font-black text-slate-800">
-              {Object.keys(stats.completedLevels).length} / {CHAPTERS.reduce((acc, ch) => acc + ch.levels.length, 0)} Solved
+              {Object.keys(stats.completedLevels).length} / {chapters.reduce((acc, ch) => acc + ch.levels.length, 0)} Solved
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Difficulty Indicator Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white/90 border border-slate-200/80 rounded-2xl px-5 py-3.5 mb-8 shadow-xs" id="level-difficulty-indicator">
+        <div className="flex items-center gap-3">
+          <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
+            difficulty === 'raised'
+              ? "bg-amber-50 text-amber-800 border-amber-300"
+              : "bg-emerald-50 text-emerald-800 border-emerald-300"
+          }`}>
+            {difficulty === 'raised' ? "Difficulty: Raised" : "Difficulty: Default"}
+          </span>
+          <span className="text-xs text-slate-600 font-medium hidden sm:inline">
+            {difficulty === 'raised' 
+              ? "Challenging step paths (3L: 4–5 steps • 4L: 5–6 steps • 5L: 5–6 steps)"
+              : "Accessible step paths (3L: 2–3 steps • 4L: 3–4 steps • 5L: 3–4 steps)"}
+          </span>
+        </div>
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer flex items-center gap-1 ml-auto"
+            id="open-settings-from-selector"
+          >
+            Change in Settings →
+          </button>
+        )}
       </div>
 
       {/* Quick Stage Generator Panel / Interactive Lab */}
@@ -179,7 +210,7 @@ export default function LevelSelector({ stats, onSelectLevel }: LevelSelectorPro
 
       {/* Chapters Tabs Selector */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {CHAPTERS.map((chapter) => {
+        {chapters.map((chapter) => {
           const unlocked = isChapterUnlocked(chapter);
           const isSelected = selectedChapterId === chapter.id;
 

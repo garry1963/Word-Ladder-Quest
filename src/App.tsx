@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Level, PlayerStats, CustomPuzzle } from "./types";
-import { CHAPTERS, ACHIEVEMENTS } from "./data/levels";
+import { Level, PlayerStats, CustomPuzzle, PuzzleDifficulty } from "./types";
+import { CHAPTERS, getChapters, ACHIEVEMENTS } from "./data/levels";
 import Menu from "./components/Menu";
 import LevelSelector from "./components/LevelSelector";
 import GameBoard from "./components/GameBoard";
@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from "motion/react";
 const LOCAL_STORAGE_KEY_STATS = "wordladder_player_stats_v1";
 const LOCAL_STORAGE_KEY_PUZZLES = "wordladder_custom_puzzles_v1";
 const LOCAL_STORAGE_KEY_DYSLEXIC = "wordladder_dyslexic_font_v1";
+const LOCAL_STORAGE_KEY_DIFFICULTY = "wordladder_puzzle_difficulty_v1";
 
 const INITIAL_STATS: PlayerStats = {
   completedLevels: {},
@@ -41,6 +42,7 @@ export default function App() {
   const [stats, setStats] = useState<PlayerStats>(INITIAL_STATS);
   const [customPuzzles, setCustomPuzzles] = useState<CustomPuzzle[]>([]);
   const [dyslexicFont, setDyslexicFont] = useState<boolean>(false);
+  const [puzzleDifficulty, setPuzzleDifficulty] = useState<PuzzleDifficulty>("default");
 
   // Notification overlays
   const [newAchievementUnlocked, setNewAchievementUnlocked] = useState<string | null>(null);
@@ -66,10 +68,25 @@ export default function App() {
       if (storedFont) {
         setDyslexicFont(JSON.parse(storedFont));
       }
+
+      const storedDiff = localStorage.getItem(LOCAL_STORAGE_KEY_DIFFICULTY);
+      if (storedDiff === "raised" || storedDiff === "default") {
+        setPuzzleDifficulty(storedDiff);
+      }
     } catch (e) {
       console.error("Failed to restore progress data", e);
     }
   }, []);
+
+  // Set puzzle difficulty and sync to localStorage
+  const handleSetPuzzleDifficulty = (diff: PuzzleDifficulty) => {
+    setPuzzleDifficulty(diff);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_DIFFICULTY, diff);
+    } catch (e) {
+      console.error("Failed to save puzzle difficulty setting", e);
+    }
+  };
 
   // Sync back to local storage
   const syncStats = (updated: PlayerStats) => {
@@ -258,8 +275,9 @@ export default function App() {
   const handlePlayNextLevel = () => {
     if (!selectedLevel) return;
     
-    // Find active chapter
-    const currentChapter = CHAPTERS.find(ch => ch.id === selectedLevel.chapterId);
+    // Find active chapter using dynamic difficulty chapters
+    const chapters = getChapters(puzzleDifficulty);
+    const currentChapter = chapters.find(ch => ch.id === selectedLevel.chapterId);
     if (!currentChapter) return;
 
     const currentIndex = currentChapter.levels.findIndex(l => l.id === selectedLevel.id);
@@ -299,6 +317,7 @@ export default function App() {
             }}
             stats={stats}
             totalChaptersStars={totalChaptersStars}
+            puzzleDifficulty={puzzleDifficulty}
           />
         )}
 
@@ -330,7 +349,9 @@ export default function App() {
               {activeTab === "adventure" && (
                 <LevelSelector 
                   stats={stats} 
-                  onSelectLevel={(level) => setSelectedLevel(level)} 
+                  onSelectLevel={(level) => setSelectedLevel(level)}
+                  difficulty={puzzleDifficulty}
+                  onOpenSettings={() => setActiveTab("stats")}
                 />
               )}
 
@@ -338,11 +359,18 @@ export default function App() {
                 <DailyChallenge 
                   stats={stats}
                   onPlayDaily={(level) => setSelectedLevel(level)}
+                  difficulty={puzzleDifficulty}
+                  onOpenSettings={() => setActiveTab("stats")}
                 />
               )}
 
               {activeTab === "arcade" && (
-                <ArcadeMode highScore={stats.arcadeHighScore} onUpdateHighScore={handleUpdateHighScore} />
+                <ArcadeMode 
+                  highScore={stats.arcadeHighScore} 
+                  onUpdateHighScore={handleUpdateHighScore}
+                  difficulty={puzzleDifficulty}
+                  onOpenSettings={() => setActiveTab("stats")}
+                />
               )}
 
               {activeTab === "workshop" && (
@@ -355,7 +383,14 @@ export default function App() {
               )}
 
               {activeTab === "stats" && (
-                <StatsDashboard stats={stats} onResetData={handleResetData} dyslexicFont={dyslexicFont} setDyslexicFont={handleToggleDyslexic} />
+                <StatsDashboard 
+                  stats={stats} 
+                  onResetData={handleResetData} 
+                  dyslexicFont={dyslexicFont} 
+                  setDyslexicFont={handleToggleDyslexic}
+                  puzzleDifficulty={puzzleDifficulty}
+                  setPuzzleDifficulty={handleSetPuzzleDifficulty}
+                />
               )}
 
               {activeTab === "howtoplay" && (

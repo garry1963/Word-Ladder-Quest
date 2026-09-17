@@ -22,18 +22,27 @@ import {
 import { 
   getRandomSolvablePair, 
   getRandomSolvablePairWithCollinsValidation, 
-  areWordsOneLetterApart 
+  areWordsOneLetterApart,
+  getDifficultySteps 
 } from "../utils/helpers";
 import { ALL_WORDS_SET, disqualifyWordForPuzzles } from "../utils/dictionary";
 import { verifyWordWithCollins } from "../utils/collinsClient";
 import { playSuccessStepSound, playErrorSound, playLevelVictorySound } from "../utils/audio";
+import { PuzzleDifficulty } from "../types";
 
 interface ArcadeModeProps {
   highScore: number;
   onUpdateHighScore: (score: number) => void;
+  difficulty?: PuzzleDifficulty;
+  onOpenSettings?: () => void;
 }
 
-export default function ArcadeMode({ highScore, onUpdateHighScore }: ArcadeModeProps) {
+export default function ArcadeMode({ 
+  highScore, 
+  onUpdateHighScore, 
+  difficulty = 'default',
+  onOpenSettings 
+}: ArcadeModeProps) {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentScore, setCurrentScore] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(60);
@@ -62,9 +71,17 @@ export default function ArcadeMode({ highScore, onUpdateHighScore }: ArcadeModeP
     loadNewMiniLadder(wordLength);
   };
 
-  // Loads a brand new random solvable ladder pair validating each word with Collins
+  // Loads a brand new random solvable ladder pair with configured difficulty
   const loadNewMiniLadder = async (len: number) => {
-    const pair = await getRandomSolvablePairWithCollinsValidation(len, ALL_WORDS_SET, 4, 7);
+    const stepsConfig = getDifficultySteps(len, difficulty);
+    const pair = await getRandomSolvablePairWithCollinsValidation(
+      len, 
+      ALL_WORDS_SET, 
+      stepsConfig.minSteps, 
+      stepsConfig.maxSteps, 
+      50, 
+      difficulty
+    );
     if (pair) {
       setStartWord(pair.start);
       setTargetWord(pair.end);
@@ -208,6 +225,33 @@ export default function ArcadeMode({ highScore, onUpdateHighScore }: ArcadeModeP
             <span>{highScore} PTS</span>
           </div>
         </div>
+      </div>
+
+      {/* Difficulty Indicator Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white/90 border border-slate-200/80 rounded-2xl px-5 py-3.5 shadow-xs" id="arcade-difficulty-indicator">
+        <div className="flex items-center gap-3">
+          <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
+            difficulty === 'raised'
+              ? "bg-amber-50 text-amber-800 border-amber-300"
+              : "bg-emerald-50 text-emerald-800 border-emerald-300"
+          }`}>
+            {difficulty === 'raised' ? "Difficulty: Raised" : "Difficulty: Default"}
+          </span>
+          <span className="text-xs text-slate-600 font-medium hidden sm:inline">
+            {difficulty === 'raised' 
+              ? "Challenging step lengths (3L: 4–5 steps • 4L: 5–6 steps • 5L: 5–6 steps)"
+              : "Accessible step lengths (3L: 2–3 steps • 4L: 3–4 steps • 5L: 3–4 steps)"}
+          </span>
+        </div>
+        {onOpenSettings && !isPlaying && (
+          <button
+            onClick={onOpenSettings}
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer flex items-center gap-1 ml-auto"
+            id="open-settings-from-arcade"
+          >
+            Change in Settings →
+          </button>
+        )}
       </div>
 
       {/* Game Layout logic */}

@@ -215,16 +215,19 @@ export async function verifyWordWithCollins(
  */
 export async function fetchValidatedLadder(
   length: number,
-  minSteps: number = 4,
-  maxSteps: number = 7,
-  options?: { timeoutMs?: number }
+  minSteps?: number,
+  maxSteps?: number,
+  options?: { timeoutMs?: number; difficulty?: 'default' | 'raised' }
 ): Promise<{ start: string; end: string; path: string[] } | null> {
   const timeoutMs = options?.timeoutMs ?? 8000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`/api/dictionary/ladder/generate?length=${length}&minSteps=${minSteps}&maxSteps=${maxSteps}`, {
+    const diffParam = options?.difficulty ? `&difficulty=${options.difficulty}` : '';
+    const minParam = minSteps !== undefined ? `&minSteps=${minSteps}` : '';
+    const maxParam = maxSteps !== undefined ? `&maxSteps=${maxSteps}` : '';
+    const res = await fetch(`/api/dictionary/ladder/generate?length=${length}${minParam}${maxParam}${diffParam}`, {
       signal: controller.signal,
       headers: {
         'Accept': 'application/json',

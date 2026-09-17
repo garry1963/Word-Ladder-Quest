@@ -13,18 +13,26 @@ import {
   PlusCircle, 
   BarChart2, 
   Settings, 
-  HelpCircle 
+  HelpCircle,
+  Gauge
 } from "lucide-react";
-import { PlayerStats } from "../types";
+import { PlayerStats, PuzzleDifficulty } from "../types";
 
 interface MenuProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   stats: PlayerStats;
   totalChaptersStars: number;
+  puzzleDifficulty?: PuzzleDifficulty;
 }
 
-export default function Menu({ activeTab, setActiveTab, stats, totalChaptersStars }: MenuProps) {
+export default function Menu({ 
+  activeTab, 
+  setActiveTab, 
+  stats, 
+  totalChaptersStars,
+  puzzleDifficulty = 'default'
+}: MenuProps) {
   // Navigation links
   const navItems = [
     { id: "adventure", label: "Quest Mode", icon: Map, color: "text-amber-500 bg-amber-50" },
@@ -78,6 +86,35 @@ export default function Menu({ activeTab, setActiveTab, stats, totalChaptersStar
               <span className="text-amber-500 mr-1 text-sm">★</span>
               <span>{totalChaptersStars} stars</span>
             </div>
+
+            {/* Puzzle Difficulty Quick Badge */}
+            <button
+              onClick={() => setActiveTab("stats")}
+              className={`hidden sm:flex items-center font-bold border rounded-full px-2.5 py-1.5 text-xs shadow-xs backdrop-blur-sm cursor-pointer transition hover:opacity-90 active:scale-95 ${
+                puzzleDifficulty === 'raised'
+                  ? "bg-amber-50 border-amber-300 text-amber-800"
+                  : "bg-emerald-50 border-emerald-300 text-emerald-800"
+              }`}
+              title="Click to view & change difficulty in Tome Settings"
+              id="header-difficulty-badge-btn"
+            >
+              <Gauge className="w-3.5 h-3.5 mr-1 text-amber-500" />
+              <span>{puzzleDifficulty === 'raised' ? "Raised" : "Default"}</span>
+            </button>
+
+            {/* Settings Quick Button */}
+            <button
+              onClick={() => setActiveTab("stats")}
+              className={`p-2 rounded-xl border transition duration-150 cursor-pointer active:translate-y-0.5 ${
+                activeTab === "stats"
+                  ? "bg-teal-600 border-teal-500 text-white shadow-sm"
+                  : "bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-600"
+              }`}
+              title="Settings & Scribe Vault"
+              id="header-settings-btn"
+            >
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
 
             {/* Tutorial Button */}
             <button

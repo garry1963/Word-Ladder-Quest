@@ -75,9 +75,13 @@ async function startServer() {
   const handleLadderGenerate = async (req: express.Request, res: express.Response) => {
     setNoCache(res);
     const length = parseInt((req.query.length as string) || req.body?.length, 10) || 4;
-    const minSteps = parseInt((req.query.minSteps as string) || req.body?.minSteps, 10) || 4;
-    const maxSteps = parseInt((req.query.maxSteps as string) || req.body?.maxSteps, 10) || 7;
-    const ladder = await generateValidatedLadder(length, minSteps, maxSteps);
+    const difficulty = ((req.query.difficulty as string) || req.body?.difficulty) === 'raised' ? 'raised' : 'default';
+    const isRaised = difficulty === 'raised';
+    const defaultMin = isRaised ? (length === 3 ? 4 : 5) : (length === 3 ? 2 : 3);
+    const defaultMax = isRaised ? (length === 3 ? 5 : 6) : (length === 3 ? 3 : 4);
+    const minSteps = parseInt((req.query.minSteps as string) || req.body?.minSteps, 10) || defaultMin;
+    const maxSteps = parseInt((req.query.maxSteps as string) || req.body?.maxSteps, 10) || defaultMax;
+    const ladder = await generateValidatedLadder(length, minSteps, maxSteps, { difficulty });
     if (!ladder) {
       res.status(500).json({ error: 'Unable to generate validated Collins ladder matching constraints.' });
       return;

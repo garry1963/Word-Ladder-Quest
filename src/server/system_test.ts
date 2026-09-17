@@ -105,13 +105,13 @@ async function runTests() {
   // SUITE 3: Solvable Puzzles & Chapter Generation
   // ==========================================
   console.log("▶ [3/5] Testing Level Generators & Chapter Playability...");
-  const solvable3 = getSeededSolvablePair(3, ALL_WORDS_SET, 12345, 4, 6);
-  assert("Level Generator", "Generates solvable 3-letter pair", solvable3.path.length >= 4);
+  const solvable3 = getSeededSolvablePair(3, ALL_WORDS_SET, 12345, 3, 4);
+  assert("Level Generator", "Generates solvable 3-letter pair", solvable3.path.length >= 3);
 
-  const solvable4 = getSeededSolvablePair(4, ALL_WORDS_SET, 54321, 4, 7);
+  const solvable4 = getSeededSolvablePair(4, ALL_WORDS_SET, 54321, 4, 5);
   assert("Level Generator", "Generates solvable 4-letter pair", solvable4.path.length >= 4);
 
-  const solvable5 = getSeededSolvablePair(5, ALL_WORDS_SET, 99999, 4, 8);
+  const solvable5 = getSeededSolvablePair(5, ALL_WORDS_SET, 99999, 4, 5);
   assert("Level Generator", "Generates solvable 5-letter pair", solvable5.path.length >= 4);
 
   let allChapterLevelsSolvable = true;
@@ -352,7 +352,7 @@ async function runTests() {
 
   // Verify random solvable pair generation for instant puzzles
   const rand3 = getRandomSolvablePair(3, ALL_WORDS_SET);
-  assert("Puzzle Generator", "getRandomSolvablePair creates 3-letter instant ladder", rand3 !== null && rand3.path.length >= 4);
+  assert("Puzzle Generator", "getRandomSolvablePair creates 3-letter instant ladder", rand3 !== null && rand3.path.length >= 3);
 
   const rand4 = getRandomSolvablePair(4, ALL_WORDS_SET);
   assert("Puzzle Generator", "getRandomSolvablePair creates 4-letter instant ladder", rand4 !== null && rand4.path.length >= 4);

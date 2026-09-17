@@ -5,6 +5,7 @@
 
 import { isWordDisqualified, disqualifyWordForPuzzles } from "./dictionary";
 import { verifyWordWithCollins, fetchValidatedLadder } from "./collinsClient";
+import { PuzzleDifficulty } from "../types";
 
 /**
  * Validates if two words of the same length are exactly one letter apart.
@@ -38,25 +39,71 @@ export function getSeededRandom(seed: number) {
   };
 }
 
+export interface DifficultyConfig {
+  minSteps: number; // minimum steps/moves between start and target
+  maxSteps: number; // maximum steps/moves between start and target
+}
+
+/**
+ * Difficulty Step Configurations:
+ * - Default:
+ *   3-Letter Puzzles: 2–3 step paths (path length 3–4)
+ *   4-Letter Puzzles: 3–4 step paths (path length 4–5)
+ *   5-Letter Puzzles: 3–4 step paths (path length 4–5)
+ * - Raised:
+ *   3-Letter Puzzles: 4–5 step paths (path length 5–6)
+ *   4-Letter Puzzles: 5–6 step paths (path length 6–7)
+ *   5-Letter Puzzles: 5–6 step paths (path length 6–7)
+ */
+export const DIFFICULTY_SPECS: Record<PuzzleDifficulty, Record<number, DifficultyConfig>> = {
+  default: {
+    3: { minSteps: 2, maxSteps: 3 },
+    4: { minSteps: 3, maxSteps: 4 },
+    5: { minSteps: 3, maxSteps: 4 },
+  },
+  raised: {
+    3: { minSteps: 4, maxSteps: 5 },
+    4: { minSteps: 5, maxSteps: 6 },
+    5: { minSteps: 5, maxSteps: 6 },
+  }
+};
+
+export function getDifficultySteps(wordLength: number, difficulty: PuzzleDifficulty = 'default'): DifficultyConfig {
+  const spec = DIFFICULTY_SPECS[difficulty]?.[wordLength];
+  if (spec) return spec;
+  return difficulty === 'raised' ? { minSteps: 5, maxSteps: 6 } : { minSteps: 3, maxSteps: 4 };
+}
+
 /**
  * Deterministically generates a solvable pair given a seed, word length, and step constraints.
+ * Supports configurable difficulty: default (breezy 2-4 steps) or raised (challenging 4-6 steps).
  */
 export function getSeededSolvablePair(
   wordLength: number,
   dictionary: Set<string>,
   seed: number,
-  minSteps: number = 4,
-  maxSteps: number = 7
+  minSteps?: number,
+  maxSteps?: number,
+  difficulty: PuzzleDifficulty = 'default'
 ): { start: string; end: string; path: string[] } {
+  const diffDefaults = getDifficultySteps(wordLength, difficulty);
+  const min = minSteps ?? diffDefaults.minSteps;
+  const max = maxSteps ?? diffDefaults.maxSteps;
+
   const rand = getSeededRandom(seed);
   const dictSet = dictionary;
   // Strictly filter out any word that has ever been disqualified from puzzle generation
   const list = Array.from(dictSet).filter(w => w.length === wordLength && !isWordDisqualified(w));
 
   if (list.length < 2) {
-    if (wordLength === 3) return { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] };
-    if (wordLength === 4) return { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] };
-    return { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] };
+    if (min >= 4) {
+      if (wordLength === 3) return { start: "AAH", end: "GAL", path: ["AAH", "BAH", "BAD", "GAD", "GAL"] };
+      if (wordLength === 4) return { start: "BITE", end: "GOES", path: ["BITE", "RITE", "ROTE", "ROTS", "ROES", "GOES"] };
+      return { start: "ADOBE", end: "SCOPE", path: ["ADOBE", "ADORE", "ADORN", "ACORN", "SCORN", "SCORE", "SCOPE"] };
+    }
+    if (wordLength === 3) return { start: "CAT", end: "DOG", path: ["CAT", "COT", "DOT", "DOG"] };
+    if (wordLength === 4) return { start: "HAND", end: "LEAF", path: ["HAND", "LAND", "LEAD", "LEAF"] };
+    return { start: "ABOVE", end: "ASIDE", path: ["ABOVE", "ABODE", "ABIDE", "ASIDE"] };
   }
 
   // Attempt to select a pair with exact step size
@@ -69,12 +116,15 @@ export function getSeededSolvablePair(
     if (start === end || isWordDisqualified(start) || isWordDisqualified(end)) continue;
 
     const path = findShortestPath(start, end, dictSet);
-    if (path && path.length >= minSteps && path.length <= maxSteps + 1) {
-      return {
-        start: start.toUpperCase(),
-        end: end.toUpperCase(),
-        path: path.map(w => w.toUpperCase())
-      };
+    if (path) {
+      const steps = path.length - 1;
+      if (steps >= min && steps <= max) {
+        return {
+          start: start.toUpperCase(),
+          end: end.toUpperCase(),
+          path: path.map(w => w.toUpperCase())
+        };
+      }
     }
   }
 
@@ -88,22 +138,31 @@ export function getSeededSolvablePair(
     if (start === end || isWordDisqualified(start) || isWordDisqualified(end)) continue;
 
     const path = findShortestPath(start, end, dictSet);
-    if (path && path.length >= 4) {
-      return {
-        start: start.toUpperCase(),
-        end: end.toUpperCase(),
-        path: path.map(w => w.toUpperCase())
-      };
+    if (path) {
+      const steps = path.length - 1;
+      if (steps >= min && steps <= max + 1) {
+        return {
+          start: start.toUpperCase(),
+          end: end.toUpperCase(),
+          path: path.map(w => w.toUpperCase())
+        };
+      }
     }
   }
 
   // Absolute fallbacks
+  if (min >= 4) {
+    if (wordLength === 3) return { start: "AAH", end: "GAL", path: ["AAH", "BAH", "BAD", "GAD", "GAL"] };
+    if (wordLength === 4) return { start: "BITE", end: "GOES", path: ["BITE", "RITE", "ROTE", "ROTS", "ROES", "GOES"] };
+    return { start: "ADOBE", end: "SCOPE", path: ["ADOBE", "ADORE", "ADORN", "ACORN", "SCORN", "SCORE", "SCOPE"] };
+  }
+
   if (wordLength === 3) {
-    return { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] };
+    return { start: "CAT", end: "DOG", path: ["CAT", "COT", "DOT", "DOG"] };
   } else if (wordLength === 4) {
-    return { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] };
+    return { start: "HAND", end: "LEAF", path: ["HAND", "LAND", "LEAD", "LEAF"] };
   } else {
-    return { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] };
+    return { start: "ABOVE", end: "ASIDE", path: ["ABOVE", "ABODE", "ABIDE", "ASIDE"] };
   }
 }
 
@@ -201,64 +260,82 @@ export function getSmartHint(
 }
 
 /**
- * Generates an interesting, solvable custom ladder of a specified word length.
- * Serves as a dynamic generator when we need a random quick puzzle.
+ * Generates an accessible, solvable custom ladder of a specified word length.
+ * Supports configurable difficulty: default (breezy 2-4 steps) or raised (challenging 4-6 steps).
  */
 export function getRandomSolvablePair(
   wordLength: number,
   dictionary: Set<string>,
-  minSteps: number = 4,
-  maxSteps: number = 7
+  minSteps?: number,
+  maxSteps?: number,
+  difficulty: PuzzleDifficulty = 'default'
 ): { start: string; end: string; path: string[] } | null {
+  const diffDefaults = getDifficultySteps(wordLength, difficulty);
+  const min = minSteps ?? diffDefaults.minSteps;
+  const max = maxSteps ?? diffDefaults.maxSteps;
+
   // Strictly filter out any word that has ever been disqualified from puzzle generation
   const list = Array.from(dictionary).filter(w => w.length === wordLength && !isWordDisqualified(w));
   if (list.length < 2) return null;
 
-  // Let's perform a fast random search for a valid pair
-  // To keep it fast, we sample randomly and verify paths
-  const maxAttempts = 120;
+  // Perform a fast random search for a valid pair matching the step constraints
+  const maxAttempts = 200;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const start = list[Math.floor(Math.random() * list.length)];
     const end = list[Math.floor(Math.random() * list.length)];
     if (start === end || isWordDisqualified(start) || isWordDisqualified(end)) continue;
 
     const path = findShortestPath(start, end, dictionary);
-    if (path && path.length >= minSteps && path.length <= maxSteps + 1) {
-      return {
-        start: start.toUpperCase(),
-        end: end.toUpperCase(),
-        path: path.map(w => w.toUpperCase())
-      };
+    if (path) {
+      const steps = path.length - 1;
+      if (steps >= min && steps <= max) {
+        return {
+          start: start.toUpperCase(),
+          end: end.toUpperCase(),
+          path: path.map(w => w.toUpperCase())
+        };
+      }
     }
   }
 
-  // Backup basic pair if search takes too long
+  // Backup verified pair if search takes too long
+  if (min >= 4) {
+    if (wordLength === 3) return { start: "AAH", end: "GAL", path: ["AAH", "BAH", "BAD", "GAD", "GAL"] };
+    if (wordLength === 4) return { start: "BITE", end: "GOES", path: ["BITE", "RITE", "ROTE", "ROTS", "ROES", "GOES"] };
+    return { start: "ADOBE", end: "SCOPE", path: ["ADOBE", "ADORE", "ADORN", "ACORN", "SCORN", "SCORE", "SCOPE"] };
+  }
+
   if (wordLength === 3) {
-    return { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] };
+    return { start: "CAT", end: "DOG", path: ["CAT", "COT", "DOT", "DOG"] };
   } else if (wordLength === 4) {
-    return { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] };
+    return { start: "HAND", end: "LEAF", path: ["HAND", "LAND", "LEAD", "LEAF"] };
   } else {
-    return { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] };
+    return { start: "ABOVE", end: "ASIDE", path: ["ABOVE", "ABODE", "ABIDE", "ASIDE"] };
   }
 }
 
 /**
  * Validated Puzzle Generation Function
  * 
- * Generates a solvable word ladder pair using the hardcoded word list.
+ * Generates an accessible solvable word ladder pair using the hardcoded word list with configured steps.
  * Collins Dictionary is exclusively utilized for looking up word definitions.
  */
 export async function getRandomSolvablePairWithCollinsValidation(
   wordLength: number,
   dictionary: Set<string>,
-  minSteps: number = 4,
-  maxSteps: number = 7,
-  maxAttempts: number = 50
+  minSteps?: number,
+  maxSteps?: number,
+  maxAttempts: number = 50,
+  difficulty: PuzzleDifficulty = 'default'
 ): Promise<{ start: string; end: string; path: string[] } | null> {
+  const diffDefaults = getDifficultySteps(wordLength, difficulty);
+  const min = minSteps ?? diffDefaults.minSteps;
+  const max = maxSteps ?? diffDefaults.maxSteps;
+
   // 1. First prioritize server-side ladder generation if available
   try {
-    const serverLadder = await fetchValidatedLadder(wordLength, minSteps, maxSteps);
-    if (serverLadder && serverLadder.path && serverLadder.path.length >= minSteps) {
+    const serverLadder = await fetchValidatedLadder(wordLength, min, max);
+    if (serverLadder && serverLadder.path && serverLadder.path.length - 1 >= min) {
       return serverLadder;
     }
   } catch (err) {
@@ -266,16 +343,22 @@ export async function getRandomSolvablePairWithCollinsValidation(
   }
 
   // 2. Generate solvable pair directly from the hardcoded word list
-  const generated = getRandomSolvablePair(wordLength, dictionary, minSteps, maxSteps);
+  const generated = getRandomSolvablePair(wordLength, dictionary, min, max, difficulty);
   if (generated) {
     return generated;
   }
 
   // Curated fallbacks
+  if (min >= 4) {
+    if (wordLength === 3) return { start: "AAH", end: "GAL", path: ["AAH", "BAH", "BAD", "GAD", "GAL"] };
+    if (wordLength === 4) return { start: "BITE", end: "GOES", path: ["BITE", "RITE", "ROTE", "ROTS", "ROES", "GOES"] };
+    return { start: "ADOBE", end: "SCOPE", path: ["ADOBE", "ADORE", "ADORN", "ACORN", "SCORN", "SCORE", "SCOPE"] };
+  }
+
   const fallbacks: Record<number, { start: string; end: string; path: string[] }> = {
-    3: { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] },
-    4: { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] },
-    5: { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] },
+    3: { start: "CAT", end: "DOG", path: ["CAT", "COT", "DOT", "DOG"] },
+    4: { start: "HAND", end: "LEAF", path: ["HAND", "LAND", "LEAD", "LEAF"] },
+    5: { start: "ABOVE", end: "ASIDE", path: ["ABOVE", "ABODE", "ABIDE", "ASIDE"] },
   };
 
   const fb = fallbacks[wordLength];

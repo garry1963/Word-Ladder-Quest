@@ -29,9 +29,10 @@ import {
   ShieldCheck,
   CheckCircle2,
   Plus,
-  X
+  X,
+  Gauge
 } from "lucide-react";
-import { PlayerStats } from "../types";
+import { PlayerStats, PuzzleDifficulty } from "../types";
 import { ACHIEVEMENTS } from "../data/levels";
 import { 
   OFFLINE_DICTIONARY, 
@@ -49,6 +50,8 @@ interface StatsDashboardProps {
   onResetData: () => void;
   dyslexicFont: boolean;
   setDyslexicFont: (val: boolean) => void;
+  puzzleDifficulty: PuzzleDifficulty;
+  setPuzzleDifficulty: (difficulty: PuzzleDifficulty) => void;
 }
 
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -65,7 +68,9 @@ export default function StatsDashboard({
   stats, 
   onResetData,
   dyslexicFont,
-  setDyslexicFont
+  setDyslexicFont,
+  puzzleDifficulty,
+  setPuzzleDifficulty
 }: StatsDashboardProps) {
   const [dictionarySearch, setDictionarySearch] = useState<string>("");
   const [soundOn, setSoundOn] = useState<boolean>(isSoundEnabled());
@@ -410,6 +415,77 @@ export default function StatsDashboard({
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
             <h3 className="font-extrabold text-slate-800 text-base border-b border-slate-100 pb-3">Tome Settings</h3>
             
+            {/* Puzzle Difficulty Toggle Card */}
+            <div className="py-3 px-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-3" id="difficulty-settings-card">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Gauge className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs sm:text-sm font-bold text-slate-800">Puzzle Difficulty</span>
+                </div>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded border font-bold uppercase ${
+                  puzzleDifficulty === 'raised' 
+                    ? "bg-amber-100 text-amber-800 border-amber-300"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }`}>
+                  {puzzleDifficulty === 'raised' ? "Raised Mode" : "Default Mode"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setPuzzleDifficulty('default')}
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer relative ${
+                    puzzleDifficulty === 'default'
+                      ? "bg-white border-emerald-500 shadow-sm ring-2 ring-emerald-500/20"
+                      : "bg-white/60 border-slate-200 hover:bg-white text-slate-600"
+                  }`}
+                  id="difficulty-default-btn"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-slate-900">Default (Accessible)</span>
+                    {puzzleDifficulty === 'default' && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">Lower steps, swift & breezy</p>
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-600 space-y-0.5">
+                    <div>3-Letter: <span className="font-bold text-slate-800">2–3 steps</span></div>
+                    <div>4-Letter: <span className="font-bold text-slate-800">3–4 steps</span></div>
+                    <div>5-Letter: <span className="font-bold text-slate-800">3–4 steps</span></div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPuzzleDifficulty('raised')}
+                  className={`p-3 rounded-xl border text-left transition cursor-pointer relative ${
+                    puzzleDifficulty === 'raised'
+                      ? "bg-white border-amber-500 shadow-sm ring-2 ring-amber-500/20"
+                      : "bg-white/60 border-slate-200 hover:bg-white text-slate-600"
+                  }`}
+                  id="difficulty-raised-btn"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-slate-900">Raised (Challenging)</span>
+                    {puzzleDifficulty === 'raised' && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-600" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-amber-800 font-medium mt-1">Intricate & longer paths</p>
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 text-[10px] font-mono text-slate-600 space-y-0.5">
+                    <div>3-Letter: <span className="font-bold text-amber-900">4–5 steps</span></div>
+                    <div>4-Letter: <span className="font-bold text-amber-900">5–6 steps</span></div>
+                    <div>5-Letter: <span className="font-bold text-amber-900">5–6 steps</span></div>
+                  </div>
+                </button>
+              </div>
+
+              <p className="text-[10px] text-slate-500 italic">
+                Controls step path targets across Adventure chapters, Daily trials, and Speedrun arena.
+              </p>
+            </div>
+
             {/* Audio Toggle */}
             <button
               onClick={handleToggleSound}

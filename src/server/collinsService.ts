@@ -543,15 +543,22 @@ export async function validateCollinsWord(
 /**
  * Authoritative Server-Side Puzzle Generation
  * 
- * Generates a solvable word ladder directly from the hardcoded word list.
+ * Generates an accessible, solvable word ladder directly from the hardcoded word list
+ * with configurable difficulty (default 2-4 steps or raised 4-6 steps).
  * Collins Dictionary API is reserved solely for looking up word definitions.
  */
 export async function generateValidatedLadder(
   wordLength: number,
-  minSteps: number = 4,
-  maxSteps: number = 7,
-  options?: { timeoutMs?: number; maxAttempts?: number }
+  minSteps?: number,
+  maxSteps?: number,
+  options?: { timeoutMs?: number; maxAttempts?: number; difficulty?: 'default' | 'raised' }
 ): Promise<{ start: string; end: string; path: string[] } | null> {
+  const isRaised = options?.difficulty === 'raised';
+  const defaultMin = isRaised ? (wordLength === 3 ? 4 : 5) : (wordLength === 3 ? 2 : 3);
+  const defaultMax = isRaised ? (wordLength === 3 ? 5 : 6) : (wordLength === 3 ? 3 : 4);
+  const min = minSteps ?? defaultMin;
+  const max = maxSteps ?? defaultMax;
+
   const cswSet = getCollinsWordsSet();
   const disqualified = getDisqualifiedWordsSet();
 
@@ -569,7 +576,7 @@ export async function generateValidatedLadder(
     }
   }
 
-  const maxAttempts = options?.maxAttempts ?? 50;
+  const maxAttempts = options?.maxAttempts ?? 120;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const startCandidate = eligibleWords[Math.floor(Math.random() * eligibleWords.length)];
@@ -578,7 +585,9 @@ export async function generateValidatedLadder(
 
     // Fast candidate path search using hardcoded lexicon
     const rawPath = findShortestPath(startCandidate, endCandidate, cleanLexicon);
-    if (!rawPath || rawPath.length < minSteps || rawPath.length > maxSteps + 1) {
+    if (!rawPath) continue;
+    const steps = rawPath.length - 1;
+    if (steps < min || steps > max) {
       continue;
     }
 
@@ -589,11 +598,21 @@ export async function generateValidatedLadder(
     };
   }
 
-  // Curated foundational fallbacks from the hardcoded word lists
+  // Curated foundational fallbacks
+  if (min >= 4) {
+    const raisedFallbacks: Record<number, { start: string; end: string; path: string[] }> = {
+      3: { start: "AAH", end: "GAL", path: ["AAH", "BAH", "BAD", "GAD", "GAL"] },
+      4: { start: "BITE", end: "GOES", path: ["BITE", "RITE", "ROTE", "ROTS", "ROES", "GOES"] },
+      5: { start: "ADOBE", end: "SCOPE", path: ["ADOBE", "ADORE", "ADORN", "ACORN", "SCORN", "SCORE", "SCOPE"] },
+    };
+    const fb = raisedFallbacks[wordLength];
+    if (fb) return { start: fb.start, end: fb.end, path: fb.path };
+  }
+
   const fallbackPairs: Record<number, { start: string; end: string; path: string[] }> = {
-    3: { start: "CAT", end: "DOG", path: ["CAT", "COT", "COG", "DOG"] },
-    4: { start: "COLD", end: "WARM", path: ["COLD", "CORD", "CARD", "WARD", "WARM"] },
-    5: { start: "SHARK", end: "SMART", path: ["SHARK", "SHARE", "STARE", "START", "SMART"] },
+    3: { start: "CAT", end: "DOG", path: ["CAT", "COT", "DOT", "DOG"] },
+    4: { start: "HAND", end: "LEAF", path: ["HAND", "LAND", "LEAD", "LEAF"] },
+    5: { start: "ABOVE", end: "ASIDE", path: ["ABOVE", "ABODE", "ABIDE", "ASIDE"] },
   };
 
   const fb = fallbackPairs[wordLength];
