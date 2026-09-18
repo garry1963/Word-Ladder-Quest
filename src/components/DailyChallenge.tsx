@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Calendar, 
   Flame, 
@@ -39,61 +39,62 @@ export default function DailyChallenge({
   // Date seed calculation (YYYYMMDD)
   const todaySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
 
-  // Generate 3 date-seeded daily levels with configured difficulty steps
-  const easySteps = getDifficultySteps(3, difficulty);
-  const mediumSteps = getDifficultySteps(4, difficulty);
-  const hardSteps = getDifficultySteps(5, difficulty);
+  // Generate 3 date-seeded daily levels with configured difficulty steps (memoized)
+  const quests = useMemo(() => {
+    const easySteps = getDifficultySteps(3, difficulty);
+    const mediumSteps = getDifficultySteps(4, difficulty);
+    const hardSteps = getDifficultySteps(5, difficulty);
 
-  const seedOffset = difficulty === 'raised' ? 7777 : 0;
-  const easyPair = getSeededSolvablePair(3, ALL_WORDS_SET, todaySeed + 100 + seedOffset, easySteps.minSteps, easySteps.maxSteps, difficulty);
-  const mediumPair = getSeededSolvablePair(4, ALL_WORDS_SET, todaySeed + 200 + seedOffset, mediumSteps.minSteps, mediumSteps.maxSteps, difficulty);
-  const hardPair = getSeededSolvablePair(5, ALL_WORDS_SET, todaySeed + 300 + seedOffset, hardSteps.minSteps, hardSteps.maxSteps, difficulty);
+    const seedOffset = difficulty === 'raised' ? 7777 : 0;
+    const easyPair = getSeededSolvablePair(3, ALL_WORDS_SET, todaySeed + 100 + seedOffset, easySteps.minSteps, easySteps.maxSteps, difficulty);
+    const mediumPair = getSeededSolvablePair(4, ALL_WORDS_SET, todaySeed + 200 + seedOffset, mediumSteps.minSteps, mediumSteps.maxSteps, difficulty);
+    const hardPair = getSeededSolvablePair(5, ALL_WORDS_SET, todaySeed + 300 + seedOffset, hardSteps.minSteps, hardSteps.maxSteps, difficulty);
 
-  const easyPar = easyPair.path.length - 1;
-  const mediumPar = mediumPair.path.length - 1;
-  const hardPar = hardPair.path.length - 1;
+    const easyPar = easyPair.path.length - 1;
+    const mediumPar = mediumPair.path.length - 1;
+    const hardPar = hardPair.path.length - 1;
 
-  const dailyId = `daily-${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}${difficulty === 'raised' ? '-r' : ''}`;
+    const dailyId = `daily-${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}${difficulty === 'raised' ? '-r' : ''}`;
 
-  // Define the set of 3 daily quests
-  const quests = [
-    {
-      id: `${dailyId}-easy`,
-      title: "Novice Scribe's Trial",
-      start: easyPair.start,
-      target: easyPair.end,
-      par: easyPar,
-      difficulty: "Easy" as const,
-      description: difficulty === 'raised'
-        ? "A challenging 4–5 step 3-letter sequence to test your speed."
-        : "A fast-paced 2–3 step 3-letter sequence to warm up your linguistic engines.",
-      badge: "Scribe"
-    },
-    {
-      id: `${dailyId}-medium`,
-      title: "Adept Alchemist's Trial",
-      start: mediumPair.start,
-      target: mediumPair.end,
-      par: mediumPar,
-      difficulty: "Medium" as const,
-      description: difficulty === 'raised'
-        ? "An intricate 5–6 step 4-letter corridor shift requiring deep planning."
-        : "The classic 3–4 step 4-letter corridor shift. Requires smooth planning.",
-      badge: "Alchemist"
-    },
-    {
-      id: `${dailyId}-hard`,
-      title: "Archmage Scholar's Trial",
-      start: hardPair.start,
-      target: hardPair.end,
-      par: hardPar,
-      difficulty: "Hard" as const,
-      description: difficulty === 'raised'
-        ? "Master-tier 5-letter navigation spanning 5–6 challenging steps."
-        : "Elite 5-letter navigation space. Only true word-craft scholars conquer this.",
-      badge: "Scholar"
-    }
-  ];
+    return [
+      {
+        id: `${dailyId}-easy`,
+        title: "Novice Scribe's Trial",
+        start: easyPair.start,
+        target: easyPair.end,
+        par: easyPar,
+        difficulty: "Easy" as const,
+        description: difficulty === 'raised'
+          ? "A challenging 4–5 step 3-letter sequence to test your speed."
+          : "A fast-paced 2–3 step 3-letter sequence to warm up your linguistic engines.",
+        badge: "Scribe"
+      },
+      {
+        id: `${dailyId}-medium`,
+        title: "Adept Alchemist's Trial",
+        start: mediumPair.start,
+        target: mediumPair.end,
+        par: mediumPar,
+        difficulty: "Medium" as const,
+        description: difficulty === 'raised'
+          ? "An intricate 5–6 step 4-letter corridor shift requiring deep planning."
+          : "The classic 3–4 step 4-letter corridor shift. Requires smooth planning.",
+        badge: "Alchemist"
+      },
+      {
+        id: `${dailyId}-hard`,
+        title: "Archmage Scholar's Trial",
+        start: hardPair.start,
+        target: hardPair.end,
+        par: hardPar,
+        difficulty: "Hard" as const,
+        description: difficulty === 'raised'
+          ? "Master-tier 5-letter navigation spanning 5–6 challenging steps."
+          : "Elite 5-letter navigation space. Only true word-craft scholars conquer this.",
+        badge: "Scholar"
+      }
+    ];
+  }, [todaySeed, difficulty]);
 
   // Selected quest tab (default to Medium/Adept)
   const [selectedQuestIdx, setSelectedQuestIdx] = useState<number>(1);

@@ -37,10 +37,17 @@ function generateDailyLevel(
   };
 }
 
+const chaptersCache = new Map<string, Chapter[]>();
+
 export function getChapters(puzzleDifficulty: PuzzleDifficulty = 'default'): Chapter[] {
+  const cacheKey = `${todaySeed}-${puzzleDifficulty}`;
+  if (chaptersCache.has(cacheKey)) {
+    return chaptersCache.get(cacheKey)!;
+  }
+
   const isRaised = puzzleDifficulty === 'raised';
 
-  return [
+  const chapters: Chapter[] = [
     {
       id: "ch1",
       title: "Chapter 1: Three-Letter Sprints",
@@ -105,6 +112,9 @@ export function getChapters(puzzleDifficulty: PuzzleDifficulty = 'default'): Cha
       ]
     }
   ];
+
+  chaptersCache.set(cacheKey, chapters);
+  return chapters;
 }
 
 export const CHAPTERS: Chapter[] = getChapters('default');

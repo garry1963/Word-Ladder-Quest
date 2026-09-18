@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion } from "motion/react";
 import { 
   BookOpen, 
@@ -40,7 +40,7 @@ export default function LevelSelector({
   const [quickDifficulty, setQuickDifficulty] = useState<"Easy" | "Medium" | "Hard">("Medium");
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-  const chapters = getChapters(difficulty);
+  const chapters = useMemo(() => getChapters(difficulty), [difficulty]);
 
   const handlePlayQuickLevel = () => {
     setIsGenerating(true);
